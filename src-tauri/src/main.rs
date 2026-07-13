@@ -7,6 +7,7 @@
 
 use base64::Engine;
 use serde::Serialize;
+use std::path::PathBuf;
 use tauri::Window;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -15,6 +16,83 @@ struct ExecResult {
     stdout: String,
     stderr: String,
     code: i32,
+}
+
+#[derive(Serialize)]
+struct FileEntry {
+    name: String,
+    size: u64,
+}
+
+/// The user's working folder: `files/` next to the executable. Scripts and tools
+/// dropped here are run and referenced by PowerShell (it cd's here, adds it to
+/// PATH, and exposes it as `$Dir`). Created on first access.
+fn files_dir() -> Result<PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe
+        .parent()
+        .ok_or("cannot resolve executable directory")?
+        .join("files");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+    Ok(dir)
+}
+
+/// Reject anything that isn't a bare file name so a caller can't escape the dir.
+fn safe_name(name: &str) -> Result<&str, String> {
+    if name.is_empty()
+        || name.contains(['/', '\\'])
+        || name.contains("..")
+        || name == "."
+    {
+        return Err("invalid file name".into());
+    }
+    Ok(name)
+}
+
+#[tauri::command]
+fn get_files_dir() -> Result<String, String> {
+    Ok(files_dir()?.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn list_files() -> Result<Vec<FileEntry>, String> {
+    let dir = files_dir()?;
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let meta = entry.metadata().map_err(|e| e.to_string())?;
+        if meta.is_file() {
+            out.push(FileEntry {
+                name: entry.file_name().to_string_lossy().into_owned(),
+                size: meta.len(),
+            });
+        }
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
+#[tauri::command]
+fn delete_file(name: String) -> Result<(), String> {
+    let dir = files_dir()?;
+    std::fs::remove_file(dir.join(safe_name(&name)?)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_files_dir() -> Result<(), String> {
+    let dir = files_dir()?;
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = &dir;
+    }
+    Ok(())
 }
 
 fn emit_line(window: &Window, run_id: &str, line: &str, stream: &str) {
