@@ -1,7 +1,7 @@
 {
   "build": {
-    "beforeBuildCommand": "node ../build.mjs",
-    "beforeDevCommand": "node ../build.mjs",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run build",
     "devPath": "../dist",
     "distDir": "../dist",
     "withGlobalTauri": true
