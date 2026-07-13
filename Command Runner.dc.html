@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./vendor/phosphor/style.css">
+  <style>
+    .cr-scroll::-webkit-scrollbar{width:10px;height:10px}
+    .cr-scroll::-webkit-scrollbar-thumb{background:var(--color-neutral-300);border-radius:6px;border:3px solid var(--color-bg)}
+    .cr-scroll::-webkit-scrollbar-track{background:transparent}
+    .cr-tab:hover{color:var(--color-accent)}
+    .cr-tab{white-space:nowrap}
+    @keyframes crSlideUp{from{transform:translateY(100%);opacity:0.4}to{transform:translateY(0);opacity:1}}
+    .cr-lock :is(input,textarea,select){pointer-events:none;opacity:0.65}
+    .cr-lock button:not(.cr-free):not(.cr-tab){pointer-events:none;opacity:0.55}
+  </style>
+</helmet>
+
+<div style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:22px;background:var(--color-neutral-200)">
+  <div style="position:relative;width:880px;height:600px;display:flex;flex-direction:column;background:var(--color-bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--color-divider)">
+
+    <!-- Title bar -->
+    <div style="display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;background:var(--color-surface);border-bottom:1px solid var(--color-divider);flex:none">
+      <i class="ph-duotone ph-terminal-window" style="font-size:18px;color:var(--color-accent-700)"></i>
+      <span style="font-family:var(--font-heading);font-weight:600;font-size:14px">Command Runner</span>
+      <span class="text-muted" style="font-size:11px;white-space:nowrap;flex:none">Windows Console &amp; Automation</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <span style="width:12px;height:12px;border-radius:50%;background:var(--color-neutral-400)"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:var(--color-neutral-400)"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:var(--color-accent-2-500)"></span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div style="display:flex;align-items:stretch;gap:4px;height:40px;padding:0 8px;border-bottom:1px solid var(--color-divider);flex:none">
+      <button class="cr-tab" onClick="{{ goConsole }}" style="{{ navConsoleStyle }}">
+        <i class="ph-duotone ph-list-magnifying-glass" style="font-size:16px"></i> Console
+      </button>
+      <button class="cr-tab" onClick="{{ goUser }}" style="{{ navUserStyle }}">
+        <i class="ph-duotone ph-user-gear" style="font-size:16px"></i> User Settings
+      </button>
+      <button class="cr-tab" onClick="{{ goConfig }}" style="{{ navConfigStyle }}">
+        <i class="ph-duotone ph-sliders-horizontal" style="font-size:16px"></i> Configuration
+        <i class="ph-duotone ph-lock-simple" style="font-size:13px;margin-left:2px"></i>
+      </button>
+      <div style="position:relative;margin-left:8px;display:flex;align-items:center">
+        <button onClick="{{ toggleScMenu }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--font-heading);font-weight:600;font-size:12px;padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--color-accent-300);background:var(--color-accent-100);color:var(--color-accent-800);cursor:pointer" style-hover="background:var(--color-accent-200)">
+          <i class="ph-duotone ph-lightning" style="font-size:13px"></i> Shortcuts
+          <i class="ph-duotone {{ scMenuCaret }}" style="font-size:12px"></i>
+        </button>
+        <sc-if value="{{ scMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:220px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;display:flex;flex-direction:column">
+            <sc-for list="{{ shortcutsView }}" as="sc" hint-placeholder-count="2">
+              <button onClick="{{ sc.onRun }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)">
+                <i class="ph-duotone ph-lightning" style="font-size:14px;color:var(--color-accent-700);flex:none"></i>
+                <span style="font-family:var(--font-heading);font-weight:600;flex:none">{{ sc.name }}</span>
+                <span style="font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sc.script }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <sc-if value="{{ isIdle }}" hint-placeholder-val="{{ true }}">
+          <button class="btn btn-primary" onClick="{{ startRun }}" style="min-height:28px;padding:4px 12px;font-size:12px">
+            <i class="ph-duotone ph-play" style="font-size:14px"></i> Start
+          </button>
+        </sc-if>
+        <sc-if value="{{ isActive }}" hint-placeholder-val="{{ false }}">
+          <button class="btn btn-secondary" onClick="{{ togglePause }}" style="min-height:28px;padding:4px 10px;font-size:12px">
+            <i class="ph-duotone {{ pauseIcon }}" style="font-size:14px"></i> {{ pauseLabel }}
+          </button>
+          <button class="btn btn-secondary" onClick="{{ requestStop }}" style="min-height:28px;padding:4px 10px;font-size:12px;color:var(--color-accent-2-700)">
+            <i class="ph-duotone ph-stop" style="font-size:14px"></i> Stop
+          </button>
+        </sc-if>
+        <button class="btn btn-secondary" onClick="{{ clearLogs }}" style="min-height:28px;padding:4px 10px;font-size:12px">
+          <i class="ph-duotone ph-trash" style="font-size:14px"></i> Clear
+        </button>
+        <button class="btn btn-secondary" onClick="{{ exportLogs }}" style="min-height:28px;padding:4px 10px;font-size:12px">
+          <i class="ph-duotone ph-download-simple" style="font-size:14px"></i> Export
+        </button>
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ statusDot }};margin-left:6px"></span>
+        <span class="text-muted" style="font-size:11px">{{ statusText }}</span>
+      </div>
+    </div>
+
+    <!-- ============ CONSOLE SCREEN ============ -->
+    <sc-if value="{{ isConsole }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+        <!-- Log console -->
+        <div ref="{{ setLogRef }}" class="cr-scroll" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
+          <sc-for list="{{ filteredLogs }}" as="log" hint-placeholder-count="8">
+            <div style="display:flex;gap:10px;align-items:baseline;padding:2px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ log.time }}</span>
+              <span style="{{ log.badgeStyle }}">{{ log.level }}</span>
+              <span style="color:var(--color-accent-700);flex:none;width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.task }}</span>
+              <span style="flex:1;color:var(--color-text);white-space:pre-wrap;word-break:break-word">{{ log.msg }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noLogs }}" hint-placeholder-val="{{ false }}">
+            <div class="text-muted" style="text-align:center;padding:40px;font-size:13px">No log entries match the current filters.</div>
+          </sc-if>
+        </div>
+
+        <!-- Shortcut output panel -->
+        <sc-if value="{{ scPanelOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;display:flex;flex-direction:column;max-height:230px;border-top:2px solid var(--color-accent);background:var(--color-surface);animation:crSlideUp 0.22s ease">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;flex:none;border-bottom:1px solid var(--color-divider)">
+              <i class="ph-duotone ph-lightning" style="font-size:15px;color:var(--color-accent-700)"></i>
+              <span style="font-family:var(--font-heading);font-weight:600;font-size:13px">{{ scPanelName }}</span>
+              <span style="font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;color:var(--color-neutral-600)">$ {{ scPanelScript }}</span>
+              <span class="text-muted" style="font-size:11px;margin-left:auto">{{ scPanelTime }}</span>
+              <button class="btn btn-ghost" onClick="{{ rerunShortcut }}" style="font-size:12px;min-height:26px;padding:3px 8px"><i class="ph-duotone ph-arrow-clockwise" style="font-size:14px"></i> Run again</button>
+              <button onClick="{{ closeScPanel }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-600);padding:3px" style-hover="color:var(--color-accent-700)"><i class="ph-duotone ph-x" style="font-size:16px"></i></button>
+            </div>
+            <div ref="{{ setScRef }}" class="cr-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:8px 0">
+              <sc-for list="{{ scLines }}" as="l" hint-placeholder-count="2">
+                <div style="display:flex;gap:10px;align-items:baseline;padding:1px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5">
+                  <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ l.time }}</span>
+                  <span style="flex:1;color:var(--color-text);white-space:pre-wrap;word-break:break-word">{{ l.msg }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- Status bar -->
+        <div style="display:flex;align-items:center;gap:16px;height:26px;padding:0 12px;background:var(--color-surface);border-top:1px solid var(--color-divider);flex:none;font-size:11px;color:var(--color-neutral-700)">
+          <span>{{ shownCount }} shown / {{ totalCount }} total</span>
+          <span>{{ pauseStatus }}</span>
+          <span style="margin-left:auto">{{ commandCount }} commands configured</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ USER SETTINGS SCREEN ============ -->
+    <sc-if value="{{ isUser }}" hint-placeholder-val="{{ false }}">
+      <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px">
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:560px">
+          <div>
+            <h4 style="margin:0 0 4px">User settings</h4>
+            <p class="text-muted" style="margin:0;font-size:12px">Choose which network adapter / port this tool operates on. Administrator actions (IP configuration, adapter restart) use this selection directly.</p>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);background:{{ backendBg }};border:1px solid {{ backendBorder }}">
+            <i class="ph-duotone {{ backendIcon }}" style="font-size:18px;color:{{ backendColor }}"></i>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:13px">{{ backendTitle }}</div>
+              <div class="text-muted" style="font-size:11px">{{ backendHint }}</div>
+            </div>
+          </div>
+
+          <div style="padding:14px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:12px">
+            <div class="field">
+              <label>Network adapter / port</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select class="input" value="{{ userAdapter }}" onChange="{{ onUserAdapter }}" style="flex:1">
+                  <sc-for list="{{ adapters }}" as="a" hint-placeholder-count="3">
+                    <option value="{{ a }}">{{ a }}</option>
+                  </sc-for>
+                </select>
+                <button class="btn btn-secondary" onClick="{{ refreshAdapters }}" style="flex:none;min-height:38px"><i class="ph-duotone ph-arrows-clockwise" style="font-size:15px"></i> Refresh</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-neutral-700)">
+              <i class="ph-duotone ph-info" style="font-size:15px;color:var(--color-accent-700)"></i>
+              <span>Selected: <b style="font-family:'SFMono-Regular',Consolas,monospace">{{ userAdapter }}</b> — used by Configuration → Computer Control.</span>
+            </div>
+          </div>
+
+          <div style="padding:14px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:12px">
+            <div class="field">
+              <label>Administrator password</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="input" type="password" placeholder="New password for Configuration" value="{{ newAdminPass }}" onInput="{{ onNewAdminPass }}" style="flex:1">
+                <button class="btn btn-secondary" onClick="{{ saveAdminPass }}" style="flex:none;min-height:38px"><i class="ph-duotone ph-floppy-disk" style="font-size:15px"></i> Save</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-neutral-700)">
+              <i class="ph-duotone ph-lock-simple" style="font-size:15px;color:var(--color-accent-700)"></i>
+              <span>{{ adminPassHint }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ CONFIG SCREEN ============ -->
+    <sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+        <!-- LOGIN GATE -->
+        <sc-if value="{{ needsLogin }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+            <div style="width:340px;display:flex;flex-direction:column;gap:14px;padding:26px;background:var(--color-surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-md)">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center">
+                <i class="ph-duotone ph-shield-check" style="font-size:34px;color:var(--color-accent-700)"></i>
+                <h4 style="margin:0">Administrator Access</h4>
+                <p class="text-muted" style="margin:0;font-size:12px">Configuration requires an administrator password.</p>
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input class="input" type="password" placeholder="Enter admin password" value="{{ loginPass }}" onInput="{{ onLoginPass }}" onKeyDown="{{ onLoginKey }}">
+              </div>
+              <sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px;color:var(--color-accent-2-700);display:flex;align-items:center;gap:6px">
+                  <i class="ph-duotone ph-warning-circle" style="font-size:15px"></i>{{ loginError }}
+                </div>
+              </sc-if>
+              <button class="btn btn-primary btn-block" onClick="{{ submitLogin }}">
+                <i class="ph-duotone ph-lock-key-open" style="font-size:16px"></i> Unlock
+              </button>
+              <p class="text-muted" style="margin:0;font-size:11px;text-align:center">{{ loginHint }}</p>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- MANAGEMENT -->
+        <sc-if value="{{ isAuthed }}" hint-placeholder-val="{{ false }}">
+          <div class="{{ lockClass }}" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <!-- sub tabs -->
+            <div style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--color-divider);flex:none">
+              <button class="cr-tab" onClick="{{ tabCommands }}" style="{{ subCommandsStyle }}"><i class="ph-duotone ph-list-checks" style="font-size:15px"></i> Commands</button>
+              <button class="cr-tab" onClick="{{ tabShortcuts }}" style="{{ subShortcutsStyle }}"><i class="ph-duotone ph-lightning" style="font-size:15px"></i> Shortcuts</button>
+              <button class="btn btn-secondary cr-free" onClick="{{ toggleEdit }}" style="margin-left:auto;font-size:12px;min-height:28px;padding:4px 10px"><i class="ph-duotone {{ editIcon }}" style="font-size:14px"></i> {{ editLabel }}</button>
+              <button class="btn btn-ghost cr-free" onClick="{{ logout }}" style="font-size:12px"><i class="ph-duotone ph-sign-out" style="font-size:15px"></i> Lock</button>
+            </div>
+
+            <!-- COMMANDS TAB -->
+            <sc-if value="{{ tabIsCommands }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1;display:flex;min-height:0">
+                <!-- list -->
+                <div style="width:210px;flex:none;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;min-height:0">
+                  <div style="padding:8px;flex:none;display:flex;flex-direction:column;gap:6px">
+                    <button class="btn btn-primary btn-block" onClick="{{ addCommand }}" style="margin-top:0"><i class="ph-duotone ph-plus" style="font-size:15px"></i> New command</button>
+                    <button class="btn btn-secondary btn-block" onClick="{{ openImport }}" style="margin-top:0"><i class="ph-duotone ph-file-code" style="font-size:15px"></i> Import script</button>
+                  </div>
+                  <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:0 8px 8px">
+                    <sc-for list="{{ commandsView }}" as="c" hint-placeholder-count="3">
+                      <div onClick="{{ c.onSelect }}" style="{{ c.rowStyle }}">
+                        <i class="ph-duotone {{ c.icon }}" style="font-size:16px;color:var(--color-accent-700);flex:none"></i>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-family:var(--font-heading);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</div>
+                          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-neutral-600)">{{ c.typeLabel }}</div>
+                        </div>
+                        <button onClick="{{ c.onDelete }}" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:2px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:15px"></i></button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <!-- editor -->
+                <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:14px 16px;min-width:0">
+                  <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;gap:12px;max-width:640px">
+                      <div>
+                        <h4 style="margin:0 0 4px">Import PowerShell script</h4>
+                        <p class="text-muted" style="margin:0;font-size:12px">Paste a complete script. It is saved as one command — any if / else logic lives inside the script itself. Run it from the command list; statements execute in order, top to bottom.</p>
+                      </div>
+                      <div class="field">
+                        <label>Script name</label>
+                        <input class="input" value="{{ importName }}" onInput="{{ onImportName }}">
+                      </div>
+                      <div class="field">
+                        <label>PowerShell script</label>
+                        <textarea class="input cr-scroll" value="{{ importText }}" onInput="{{ onImportText }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;min-height:200px"></textarea>
+                      </div>
+                      <div style="display:flex;gap:8px">
+                        <button class="btn btn-primary" onClick="{{ runImport }}"><i class="ph-duotone ph-check" style="font-size:15px"></i> Import</button>
+                        <button class="btn btn-ghost" onClick="{{ closeImport }}">Cancel</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ editorOpen }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;flex-direction:column;gap:12px">
+                      <div style="display:flex;gap:10px;align-items:flex-end">
+                        <div class="field" style="flex:1">
+                          <label>Command name</label>
+                          <input class="input" value="{{ sel.name }}" onInput="{{ onName }}">
+                        </div>
+                        <div class="field" style="width:150px">
+                          <label>Type</label>
+                          <select class="input" value="{{ sel.type }}" onChange="{{ onType }}">
+                            <option value="powershell">PowerShell</option>
+                            <option value="ssh">SSH (remote)</option>
+                            <option value="control">Computer Control</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <!-- SSH connection -->
+                      <sc-if value="{{ selIsSsh }}" hint-placeholder-val="{{ false }}">
+                        <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                          <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
+                            <i class="ph-duotone ph-plug" style="font-size:14px"></i> Remote connection
+                          </div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ sel.host }}" onInput="{{ onHost }}"></div>
+                            <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ sel.port }}" onInput="{{ onPort }}"></div>
+                          </div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ sel.username }}" onInput="{{ onUser }}"></div>
+                            <div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ sel.password }}" onInput="{{ onPass }}"></div>
+                          </div>
+                          <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
+                            <i class="ph-duotone ph-key" style="font-size:14px"></i> Credentials are stored once and reused for every run — saved unencrypted on this machine.
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <!-- Computer Control fields -->
+                      <sc-if value="{{ selIsControl }}" hint-placeholder-val="{{ false }}">
+                        <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                          <div class="field">
+                            <label>Network adapter / port</label>
+                            <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--color-accent-100);border-radius:var(--radius-md);border:1px solid var(--color-accent-300)">
+                              <i class="ph-duotone ph-network" style="font-size:16px;color:var(--color-accent-700)"></i>
+                              <span style="font-family:var(--font-heading);font-weight:600;font-size:13px">User network interface</span>
+                              <span class="text-muted" style="font-size:11px;margin-left:auto">selected in <a href="#" onClick="{{ goUserFromCc }}" style="color:var(--color-accent-700)">User Settings</a></span>
+                            </div>
+                          </div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>IP address</label><input class="input" value="{{ cc.ip }}" onInput="{{ onCcIp }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                            <div class="field" style="flex:1"><label>Subnet mask</label><input class="input" value="{{ cc.mask }}" onInput="{{ onCcMask }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                          </div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>Default gateway</label><input class="input" value="{{ cc.gateway }}" onInput="{{ onCcGw }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                            <div class="field" style="flex:1"><label>DNS server</label><input class="input" value="{{ cc.dns }}" onInput="{{ onCcDns }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">Generated command</div>
+                          <div style="padding:12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word">{{ ccCommand }}</div>
+                        </div>
+                      </sc-if>
+
+                      <div class="field" style="{{ scriptFieldStyle }}">
+                        <label>{{ scriptLabel }}</label>
+                        <textarea class="input" value="{{ sel.script }}" onInput="{{ onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;min-height:70px"></textarea>
+                      </div>
+                      <div>
+                        <button class="btn btn-secondary cr-free" onClick="{{ testSelected }}"><i class="ph-duotone ph-flask" style="font-size:15px"></i> Test</button>
+                      </div>
+
+                      <!-- Logic rules -->
+                      <div style="{{ rulesWrapStyle }}">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">Result logic (if / else)</span>
+                          <button class="btn btn-ghost" onClick="{{ addRule }}" style="font-size:12px"><i class="ph-duotone ph-plus" style="font-size:14px"></i> Add rule</button>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:10px">
+                          <sc-for list="{{ rulesView }}" as="r" hint-placeholder-count="1">
+                            <div style="padding:10px 12px;background:var(--color-surface);border-radius:var(--radius-md);border-left:2px solid var(--color-accent);display:flex;flex-direction:column;gap:8px">
+                              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                <span style="font-family:var(--font-heading);font-weight:600;font-size:13px;color:var(--color-accent-700)">IF</span>
+                                <span style="font-size:12px">result</span>
+                                <select class="input" value="{{ r.cond }}" onChange="{{ r.onCond }}" style="width:auto;min-height:30px;font-size:12px">
+                                  <option value="contains">contains</option>
+                                  <option value="equals">equals</option>
+                                  <option value="matches">matches (regex)</option>
+                                  <option value="exit0">exit code = 0</option>
+                                  <option value="exitNonZero">exit code ≠ 0</option>
+                                </select>
+                                <sc-if value="{{ r.needsValue }}" hint-placeholder-val="{{ true }}">
+                                  <input class="input" placeholder="text…" value="{{ r.value }}" onInput="{{ r.onValue }}" style="flex:1;min-width:90px;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
+                                </sc-if>
+                                <button onClick="{{ r.onDelete }}" style="margin-left:auto;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:2px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-x" style="font-size:15px"></i></button>
+                              </div>
+                              <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-family:var(--font-heading);font-weight:600;font-size:12px;color:var(--color-accent-700);width:38px">THEN</span>
+                                <input class="input" placeholder="command to run on match" value="{{ r.thenCmd }}" onInput="{{ r.onThen }}" style="flex:1;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
+                              </div>
+                              <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-family:var(--font-heading);font-weight:600;font-size:12px;color:var(--color-neutral-600);width:38px">ELSE</span>
+                                <input class="input" placeholder="command to run otherwise" value="{{ r.elseCmd }}" onInput="{{ r.onElse }}" style="flex:1;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- SHORTCUTS TAB -->
+            <sc-if value="{{ tabIsShortcuts }}" hint-placeholder-val="{{ false }}">
+              <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px">
+                <div style="display:flex;flex-direction:column;gap:12px;max-width:640px">
+                  <div>
+                    <h4 style="margin:0 0 4px">Shortcut commands</h4>
+                    <p class="text-muted" style="margin:0;font-size:12px">Shortcuts appear as one-click buttons in the top bar. Each click clears the previous printout and prints a fresh result to the console.</p>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <sc-for list="{{ shortcutsEdit }}" as="se" hint-placeholder-count="1">
+                      <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                        <div style="display:flex;gap:10px;align-items:flex-end">
+                          <div class="field" style="width:180px">
+                            <label>Button label</label>
+                            <input class="input" value="{{ se.name }}" onInput="{{ se.onName }}">
+                          </div>
+                          <div class="field" style="flex:1">
+                            <label>PowerShell command</label>
+                            <input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px">
+                          </div>
+                          <button class="btn btn-secondary cr-free" onClick="{{ se.onTest }}" style="min-height:36px;padding:6px 12px;font-size:12px"><i class="ph-duotone ph-flask" style="font-size:15px"></i> Test</button>
+                          <button onClick="{{ se.onDelete }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:6px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:17px"></i></button>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <button class="btn btn-secondary" onClick="{{ addShortcut }}"><i class="ph-duotone ph-plus" style="font-size:15px"></i> Add shortcut</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- Test output panel -->
+            <sc-if value="{{ testPanelOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:none;display:flex;flex-direction:column;max-height:220px;border-top:2px solid var(--color-accent);background:var(--color-surface);animation:crSlideUp 0.22s ease">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;flex:none;border-bottom:1px solid var(--color-divider)">
+                  <i class="ph-duotone ph-flask" style="font-size:15px;color:var(--color-accent-700)"></i>
+                  <span style="font-family:var(--font-heading);font-weight:600;font-size:13px">Test — {{ testPanelName }}</span>
+                  <span class="text-muted" style="font-size:11px;margin-left:auto">{{ testPanelTime }}</span>
+                  <button class="btn btn-ghost cr-free" onClick="{{ rerunTest }}" style="font-size:12px;min-height:26px;padding:3px 8px"><i class="ph-duotone ph-arrow-clockwise" style="font-size:14px"></i> Run again</button>
+                  <button class="cr-free" onClick="{{ closeTestPanel }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-600);padding:3px" style-hover="color:var(--color-accent-700)"><i class="ph-duotone ph-x" style="font-size:16px"></i></button>
+                </div>
+                <div ref="{{ setTestRef }}" class="cr-scroll" style="flex:1;min-height:56px;overflow-y:auto;padding:8px 0">
+                  <sc-for list="{{ testLines }}" as="l" hint-placeholder-count="2">
+                    <div style="display:flex;gap:10px;align-items:baseline;padding:1px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5">
+                      <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ l.time }}</span>
+                      <span style="flex:1;color:var(--color-text);white-space:pre-wrap;word-break:break-word">{{ l.msg }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- Stop confirm dialog -->
+    <sc-if value="{{ stopConfirmOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;background:color-mix(in srgb, var(--color-text) 38%, transparent);display:flex;align-items:center;justify-content:center">
+        <div style="width:360px;background:var(--color-bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <i class="ph-duotone ph-warning-circle" style="font-size:26px;color:var(--color-accent-2-600)"></i>
+            <h4 style="margin:0">Stop execution?</h4>
+          </div>
+          <p class="text-muted" style="margin:0;font-size:13px">Execution cannot resume mid-way. Logs are kept — pressing Start later clears them and runs from the beginning.</p>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px">
+            <button class="btn btn-ghost" onClick="{{ cancelStop }}">Cancel</button>
+            <button class="btn btn-primary" onClick="{{ confirmStop }}" style="background:var(--color-accent-2-600);border-color:var(--color-accent-2-600)"><i class="ph-duotone ph-stop" style="font-size:15px"></i> Stop</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:924,&quot;height&quot;:644}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'main',
+    tab: 'commands',
+    adminAuthed: false,
+    runState: 'idle',
+    editMode: false,
+    stopConfirm: false,
+    loginPass: '',
+    loginError: '',
+    search: '',
+    level: 'all',
+    taskFilter: 'all',
+    selectedId: 'c1',
+    commands: [
+      { id:'c1', name:'Ping Gateway', type:'powershell',
+        script:'Test-Connection -ComputerName 192.168.1.1 -Count 4',
+        host:'', port:'22', username:'', password:'',
+        rules:[{ cond:'exit0', value:'', thenCmd:'Write-Host "Gateway reachable"', elseCmd:'Write-Host "Gateway UNREACHABLE"' }] },
+      { id:'c2', name:'Adapter Status', type:'powershell',
+        script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize',
+        host:'', port:'22', username:'', password:'',
+        rules:[] },
+    ],
+    adapters: [],
+    userAdapter: '',
+    adminPass: 'admin',
+    newAdminPass: '',
+    cc: { ip:'192.168.10.50', mask:'255.255.255.0', gateway:'192.168.10.1', dns:'8.8.8.8' },
+    shortcuts: [
+      { id:'s1', name:'Get IP', script:'ipconfig' },
+      { id:'s2', name:'Adapters', script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize' },
+      { id:'s3', name:'Flush DNS', script:'Clear-DnsClientCache; Write-Host "DNS cache cleared"' },
+    ],
+    scMenuOpen: false,
+    testPanel: null,
+    testPanelTime: '',
+    testLines: [],
+    testBusy: false,
+    scPanel: null,
+    scPanelTime: '',
+    scLines: [],
+    scBusy: false,
+    importOpen: false,
+    importName: 'Imported script',
+    importText: 'Get-Service -Name Spooler\nGet-NetAdapter | Where-Object Status -eq "Up"\nClear-DnsClientCache',
+    logs: [],
+  };
+
+  STORE_KEY = 'command-runner-v1';
+  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass'];
+
+  _n = 100;
+  _runSeq = 0;
+  _sinks = {};   // runId -> line callback, for streamed output
+  _abort = false;
+
+  // ---------- backend bridge (Tauri) ----------
+  // The Rust side runs the commands for real; in a plain browser there is no
+  // backend and every execution path reports that instead of faking output.
+  _tauri() { return window.__TAURI__ || null; }
+  _invoke() {
+    const t = this._tauri();
+    if (!t) return null;
+    return t.invoke || (t.tauri && t.tauri.invoke) || null;
+  }
+
+  componentDidMount() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(this.STORE_KEY) || 'null'); } catch (e) {}
+    if (saved && typeof saved === 'object') {
+      const patch = {};
+      this.PERSISTED.forEach(k => { if (saved[k] !== undefined) patch[k] = saved[k]; });
+      if (patch.commands && patch.commands.length) patch.selectedId = patch.commands[0].id;
+      this.setState(patch);
+    }
+
+    const t = this._tauri();
+    if (t && t.event && t.event.listen) {
+      t.event.listen('exec://line', ev => {
+        const p = ev.payload || {};
+        const sink = this._sinks[p.runId];
+        if (sink) sink(p.line, p.stream);
+      });
+    }
+
+    this.pushLog({ level:'info', task:'System', msg: this._invoke()
+      ? 'Command Runner ready — local execution backend connected.'
+      : 'No execution backend: running in a browser. Commands will not execute — use the packaged desktop app.' });
+    this.refreshAdapters(true);
+  }
+
+  // The dc-runtime only hands componentDidUpdate prevProps, never prevState, so
+  // change detection tracks its own prior values instead of comparing to ps.
+  componentDidUpdate() {
+    this._save();
+    if (this._logEl && this.state.logs.length !== this._lastLogLen) {
+      this._lastLogLen = this.state.logs.length;
+      this._logEl.scrollTop = this._logEl.scrollHeight;
+    }
+  }
+
+  // ponytail: plaintext config on disk. SSH and admin passwords live here in the
+  // clear — same trust level as the machine itself. Move to the Windows Credential
+  // Manager if this ever holds credentials the local user shouldn't already have.
+  _save() {
+    try {
+      const slice = {};
+      this.PERSISTED.forEach(k => { slice[k] = this.state[k]; });
+      const json = JSON.stringify(slice);
+      if (json === this._savedSig) return;   // only touch localStorage on real change
+      this._savedSig = json;
+      localStorage.setItem(this.STORE_KEY, json);
+    } catch (e) {}
+  }
+
+  _now() { return new Date().toLocaleTimeString('en-GB'); }
+  _mk(e) { return { id: ++this._n, time: this._now(), level: e.level, task: e.task, msg: e.msg }; }
+  pushLog(e) {
+    this.setState(s => {
+      const logs = s.logs.concat(this._mk(e));
+      return { logs: logs.length > 2000 ? logs.slice(-2000) : logs };
+    });
+  }
+  setLogRef = el => { this._logEl = el; };
+
+  // ---------- execution ----------
+  // spec: { kind:'ps'|'ssh', script, host, port, username, password }
+  // onLine(line, stream) fires per output line while the command is still running.
+  async exec(spec, onLine) {
+    const invoke = this._invoke();
+    if (!invoke) throw new Error('No execution backend — run the packaged desktop app.');
+    const runId = 'r' + (++this._runSeq);
+    if (onLine) this._sinks[runId] = onLine;
+    try {
+      // Tauri delivers emitted lines and the command's return value over the same
+      // ordered channel, so every line has arrived by the time this resolves.
+      const res = spec.kind === 'ssh'
+        ? await invoke('run_ssh', {
+            runId,
+            host: (spec.host || '').trim(),
+            port: parseInt(spec.port, 10) || 22,
+            username: (spec.username || '').trim(),
+            password: spec.password || '',
+            script: spec.script || '',
+          })
+        : await invoke('run_powershell', { runId, script: spec.script || '' });
+      const text = [res.stdout, res.stderr].filter(Boolean).join('\n').trim();
+      return { stdout: res.stdout, stderr: res.stderr, exit: res.code, text };
+    } finally {
+      delete this._sinks[runId];
+    }
+  }
+
+  _spec(cmd) {
+    if (cmd.type === 'ssh') {
+      return { kind:'ssh', host:cmd.host, port:cmd.port, username:cmd.username, password:cmd.password, script:cmd.script };
+    }
+    if (cmd.type === 'control') return { kind:'ps', script: this._ccScript() };
+    return { kind:'ps', script: cmd.script };
+  }
+
+  _evalRule(r, out) {
+    switch (r.cond) {
+      case 'contains': return out.text.includes(r.value);
+      case 'equals': return out.text.trim() === (r.value || '').trim();
+      case 'matches': try { return new RegExp(r.value).test(out.text); } catch (e) { return false; }
+      case 'exit0': return out.exit === 0;
+      case 'exitNonZero': return out.exit !== 0;
+      default: return false;
+    }
+  }
+  _condText(r) {
+    if (r.cond === 'exit0') return 'exit code == 0';
+    if (r.cond === 'exitNonZero') return 'exit code != 0';
+    const verb = { contains:'contains', equals:'equals', matches:'matches' }[r.cond] || r.cond;
+    return `result ${verb} "${r.value}"`;
+  }
+
+  // Run one command: execute, stream its output, then apply its if/else rules.
+  async runCommand(cmd) {
+    const task = cmd.name;
+    const spec = this._spec(cmd);
+    const kindLabel = cmd.type === 'ssh' ? 'SSH' : cmd.type === 'control' ? 'Computer Control' : 'PowerShell';
+    this.pushLog({ level:'info', task, msg:`▶ Starting "${task}" (${kindLabel})` });
+    if (cmd.type === 'ssh') {
+      this.pushLog({ level:'info', task, msg:`Connecting ${cmd.username}@${cmd.host}:${cmd.port} …` });
+    }
+    (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => {
+      this.pushLog({ level:'info', task, msg:`$ ${l.trim()}` });
+    });
+
+    let out;
+    try {
+      out = await this.exec(spec, (line, stream) =>
+        this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, msg: line }));
+    } catch (e) {
+      this.pushLog({ level:'error', task, msg:`✗ "${task}" failed: ${e.message || e}` });
+      return null;
+    }
+
+    for (const r of (cmd.rules || [])) {
+      const matched = this._evalRule(r, out);
+      this.pushLog({ level: matched ? 'info' : 'warn', task, msg:`if (${this._condText(r)}) → ${matched ? 'TRUE' : 'FALSE'}` });
+      const branch = matched ? r.thenCmd : r.elseCmd;
+      if (!branch || !branch.trim()) continue;
+      this.pushLog({ level: matched ? 'info' : 'warn', task, msg:`  ${matched ? 'then' : 'else'} ⇒ ${branch}` });
+      try {
+        // The branch runs over the same transport as the command that triggered it.
+        await this.exec({ ...spec, script: branch }, (line, stream) =>
+          this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, msg: `  ${line}` }));
+      } catch (e) {
+        this.pushLog({ level:'error', task, msg:`  branch failed: ${e.message || e}` });
+      }
+    }
+
+    this.pushLog({
+      level: out.exit === 0 ? 'info' : 'warn',
+      task,
+      msg: `${out.exit === 0 ? '✓' : '✗'} "${task}" completed (exit ${out.exit})`,
+    });
+    return out;
+  }
+
+  // ---------- the run: every configured command, in order ----------
+  _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  async _waitWhilePaused() {
+    while (this.state.runState === 'paused' && !this._abort) await this._sleep(150);
+  }
+
+  startRun = async () => {
+    if (this.state.runState !== 'idle') return;
+    const cmds = this.state.commands;
+    this._abort = false;
+    this.setState({ logs: [], runState:'running', screen:'main' });
+    this.pushLog({ level:'info', task:'System', msg:`▶ Run started — ${cmds.length} command(s) queued.` });
+
+    for (const cmd of cmds) {
+      await this._waitWhilePaused();
+      if (this._abort) break;
+      await this.runCommand(cmd);
+    }
+
+    const stopped = this._abort;
+    this.pushLog({
+      level: stopped ? 'warn' : 'info',
+      task: 'System',
+      msg: stopped ? '■ Run stopped by user.' : '✓ Run finished — all commands executed.',
+    });
+    this._abort = false;
+    this.setState({ runState:'idle' });
+  };
+
+  // ---------- command CRUD ----------
+  _update(id, patch) {
+    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, ...patch } : c) }));
+  }
+  _sel() { return this.state.commands.find(c => c.id === this.state.selectedId); }
+  addCommand = () => {
+    const id = 'c' + (++this._n) + '-' + Date.now();
+    const cmd = { id, name:'New command', type:'powershell', script:'Write-Host "Hello"', host:'', port:'22', username:'', password:'', rules:[] };
+    this.setState(s => ({ commands: s.commands.concat(cmd), selectedId: id, tab:'commands', importOpen:false }));
+  };
+  deleteCommand(id) {
+    this.setState(s => {
+      const commands = s.commands.filter(c => c.id !== id);
+      const selectedId = s.selectedId === id ? (commands[0] ? commands[0].id : null) : s.selectedId;
+      return { commands, selectedId };
+    });
+  }
+  _updRule(id, i, patch) {
+    this.setState(s => ({ commands: s.commands.map(c => {
+      if (c.id !== id) return c;
+      return { ...c, rules: c.rules.map((r, ri) => ri === i ? { ...r, ...patch } : r) };
+    }) }));
+  }
+  addRule = () => {
+    const id = this.state.selectedId;
+    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, rules: c.rules.concat({ cond:'contains', value:'', thenCmd:'', elseCmd:'' }) } : c) }));
+  };
+  deleteRule(id, i) {
+    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, rules: c.rules.filter((r, ri) => ri !== i) } : c) }));
+  }
+
+  // ---------- script import ----------
+  runImport = () => {
+    const s = this.state;
+    const text = (s.importText || '').trim();
+    if (!text) return;
+    const statements = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).length;
+    const name = s.importName || 'Imported script';
+    const id = 'c' + (++this._n) + '-' + Date.now();
+    const cmd = { id, name, type:'powershell', script:text, host:'', port:'22', username:'', password:'', rules:[] };
+    this.setState(st => ({ commands: st.commands.concat(cmd), selectedId:id, importOpen:false }));
+    this.pushLog({ level:'info', task:'System', msg:`✓ Script "${name}" imported as a command (${statements} statements). Run it from the command list.` });
+  };
+
+  // ---------- shortcuts ----------
+  async runShortcut(sc) {
+    this._scRun = (this._scRun || 0) + 1;
+    const run = this._scRun;
+    const append = (msg) => {
+      if (this._scRun !== run) return;
+      this.setState(s => ({ scLines: s.scLines.concat({ time:this._now(), msg }) }));
+      if (this._scEl) this._scEl.scrollTop = this._scEl.scrollHeight;
+    };
+    this.setState({ scMenuOpen:false, screen:'main', scPanel:{ name:sc.name, script:sc.script }, scPanelTime:this._now(), scLines:[], scBusy:true });
+    append(`$ ${sc.script}`);
+    try {
+      const out = await this.exec({ kind:'ps', script: sc.script }, line => append(line));
+      append(`${out.exit === 0 ? '✓' : '✗'} done (exit ${out.exit})`);
+    } catch (e) {
+      append(`✗ ${e.message || e}`);
+    }
+    if (this._scRun === run) this.setState({ scBusy:false });
+  }
+  setScRef = el => { this._scEl = el; };
+
+  // ---------- test panel ----------
+  async runTest(name, spec) {
+    this._testRun = (this._testRun || 0) + 1;
+    const run = this._testRun;
+    const append = (msg) => {
+      if (this._testRun !== run) return;
+      this.setState(s => ({ testLines: s.testLines.concat({ time:this._now(), msg }) }));
+      if (this._testEl) this._testEl.scrollTop = this._testEl.scrollHeight;
+    };
+    this.setState({ testPanel:{ name, spec }, testPanelTime:this._now(), testLines:[], testBusy:true });
+    (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => append(`$ ${l.trim()}`));
+    try {
+      const out = await this.exec(spec, line => append(line));
+      append(`${out.exit === 0 ? '✓' : '✗'} test finished (exit ${out.exit})`);
+    } catch (e) {
+      append(`✗ ${e.message || e}`);
+    }
+    if (this._testRun === run) this.setState({ testBusy:false });
+  }
+  setTestRef = el => { this._testEl = el; };
+
+  addShortcut = () => {
+    this.setState(s => ({ shortcuts: s.shortcuts.concat({ id:'s'+(++this._n)+'-'+Date.now(), name:'New shortcut', script:'Get-Date' }) }));
+  };
+  _updShortcut(id, patch) {
+    this.setState(s => ({ shortcuts: s.shortcuts.map(x => x.id === id ? { ...x, ...patch } : x) }));
+  }
+
+  // ---------- computer control ----------
+  _prefix(mask) {
+    const m = String(mask || '').trim();
+    if (/^\d{1,2}$/.test(m)) return Math.min(32, parseInt(m, 10));   // a prefix length typed directly
+    const parts = m.split('.');
+    if (parts.length !== 4) return 24;
+    let bits = 0;
+    for (const p of parts) {
+      const n = parseInt(p, 10);
+      if (isNaN(n) || n < 0 || n > 255) return 24;
+      bits += (n >>> 0).toString(2).split('0')[0].length;   // leading 1s
+    }
+    return bits;
+  }
+  // Real IP reconfiguration. New-NetIPAddress refuses to add an address the adapter
+  // already carries, so the old address and default route are cleared first.
+  _ccScript(adapterOverride) {
+    const c = this.state.cc;
+    const nic = adapterOverride !== undefined ? adapterOverride : (this.state.userAdapter || '<no adapter selected>');
+    const lines = [
+      `$nic = "${nic}"`,
+      `Remove-NetIPAddress -InterfaceAlias $nic -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue`,
+      `Remove-NetRoute -InterfaceAlias $nic -DestinationPrefix 0.0.0.0/0 -Confirm:$false -ErrorAction SilentlyContinue`,
+    ];
+    let add = `New-NetIPAddress -InterfaceAlias $nic -IPAddress ${c.ip} -PrefixLength ${this._prefix(c.mask)}`;
+    if ((c.gateway || '').trim()) add += ` -DefaultGateway ${c.gateway.trim()}`;
+    lines.push(add);
+    if ((c.dns || '').trim()) {
+      lines.push(`Set-DnsClientServerAddress -InterfaceAlias $nic -ServerAddresses ${c.dns.trim()}`);
+    }
+    lines.push(`Get-NetIPAddress -InterfaceAlias $nic -AddressFamily IPv4 | Format-Table IPAddress, PrefixLength -AutoSize`);
+    return lines.join('\n');
+  }
+
+  refreshAdapters = async (quiet) => {
+    if (!this._invoke()) return;
+    try {
+      const out = await this.exec({ kind:'ps', script:'Get-NetAdapter | Sort-Object Name | Select-Object -ExpandProperty Name' });
+      const adapters = out.stdout.split('\n').map(x => x.trim()).filter(Boolean);
+      if (!adapters.length) {
+        if (!quiet) this.pushLog({ level:'warn', task:'System', msg:'Get-NetAdapter returned no adapters.' });
+        return;
+      }
+      this.setState(s => ({
+        adapters,
+        userAdapter: adapters.includes(s.userAdapter) ? s.userAdapter : adapters[0],
+      }));
+      if (!quiet) this.pushLog({ level:'info', task:'System', msg:`Adapters refreshed: ${adapters.join(', ')}` });
+    } catch (e) {
+      this.pushLog({ level:'error', task:'System', msg:`Could not list adapters: ${e.message || e}` });
+    }
+  };
+
+  // ---------- login / nav ----------
+  goConsole = () => this.setState({ screen:'main' });
+  goUser = () => this.setState({ screen:'user' });
+  goConfig = () => this.setState({ screen:'config', loginError:'' });
+  submitLogin = () => {
+    if (this.state.loginPass === this.state.adminPass) this.setState({ adminAuthed:true, loginPass:'', loginError:'' });
+    else this.setState({ loginError:'Incorrect password. Access denied.' });
+  };
+  logout = () => this.setState({ adminAuthed:false, loginPass:'' });
+
+  renderVals() {
+    const s = this.state;
+    const isConsole = s.screen === 'main';
+    const isUser = s.screen === 'user';
+    const isConfig = s.screen === 'config';
+    const isAuthed = isConfig && s.adminAuthed;
+    const needsLogin = isConfig && !s.adminAuthed;
+    const hasBackend = !!this._invoke();
+
+    const q = s.search.toLowerCase();
+    const filtered = s.logs.filter(l =>
+      (s.level === 'all' || l.level === s.level) &&
+      (s.taskFilter === 'all' || l.task === s.taskFilter) &&
+      (!q || l.msg.toLowerCase().includes(q) || l.task.toLowerCase().includes(q))
+    );
+    const badge = (lvl) => {
+      const base = { flex:'none', fontSize:'9px', fontWeight:700, letterSpacing:'0.06em', padding:'1px 6px', borderRadius:'2px', width:'46px', textAlign:'center', textTransform:'uppercase' };
+      if (lvl === 'warn') return { ...base, background:'color-mix(in srgb, var(--color-process-yellow) 26%, transparent)', color:'#7a5c00' };
+      if (lvl === 'error') return { ...base, background:'var(--color-accent-2-100)', color:'var(--color-accent-2-800)' };
+      return { ...base, background:'var(--color-accent-100)', color:'var(--color-accent-800)' };
+    };
+    const filteredLogs = filtered.map(l => ({ ...l, badgeStyle: badge(l.level) }));
+
+    const tabStyle = (active) => ({
+      display:'inline-flex', alignItems:'center', gap:'6px', border:'none', background:'transparent', cursor:'pointer',
+      fontFamily:'var(--font-heading)', fontWeight:600, fontSize:'13px', padding:'6px 12px', borderRadius:'var(--radius-md)',
+      color: active ? 'var(--color-accent-700)' : 'var(--color-neutral-700)',
+      borderBottom: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+    });
+
+    const iconFor = (c) => c.type === 'ssh' ? 'ph-plugs-connected' : c.type === 'control' ? 'ph-network' : 'ph-terminal';
+    const commandsView = s.commands.map(c => ({
+      id:c.id, name:c.name,
+      typeLabel: c.type === 'ssh' ? 'SSH' : c.type === 'control' ? 'Control' : 'PowerShell',
+      icon: iconFor(c),
+      rowStyle: {
+        display:'flex', alignItems:'center', gap:'8px', padding:'8px 9px', marginTop:'6px', cursor:'pointer',
+        borderRadius:'var(--radius-md)',
+        background: c.id === s.selectedId ? 'var(--color-accent-100)' : 'transparent',
+        boxShadow: c.id === s.selectedId ? 'inset 0 0 0 1px var(--color-accent-300)' : 'none',
+      },
+      onSelect: () => this.setState({ selectedId: c.id, importOpen: false }),
+      onDelete: (e) => { e.stopPropagation(); this.deleteCommand(c.id); },
+    }));
+
+    const sel = this._sel();
+    const rulesView = sel ? sel.rules.map((r, i) => ({
+      cond:r.cond, value:r.value, thenCmd:r.thenCmd, elseCmd:r.elseCmd,
+      needsValue: !(r.cond === 'exit0' || r.cond === 'exitNonZero'),
+      onCond: (e) => this._updRule(sel.id, i, { cond:e.target.value }),
+      onValue: (e) => this._updRule(sel.id, i, { value:e.target.value }),
+      onThen: (e) => this._updRule(sel.id, i, { thenCmd:e.target.value }),
+      onElse: (e) => this._updRule(sel.id, i, { elseCmd:e.target.value }),
+      onDelete: () => this.deleteRule(sel.id, i),
+    })) : [];
+
+    const busy = s.runState !== 'idle';
+
+    return {
+      isConsole, isUser, isConfig, isAuthed, needsLogin,
+      goConsole: this.goConsole, goUser: this.goUser, goConfig: this.goConfig,
+      goUserFromCc: (e) => { e.preventDefault(); this.goUser(); },
+      navConsoleStyle: tabStyle(isConsole),
+      navUserStyle: tabStyle(isUser),
+      navConfigStyle: tabStyle(isConfig),
+
+      // user settings
+      adapters: s.adapters,
+      userAdapter: s.userAdapter,
+      onUserAdapter: (e) => this.setState({ userAdapter: e.target.value }),
+      refreshAdapters: () => this.refreshAdapters(false),
+      backendTitle: hasBackend ? 'Local execution backend connected' : 'No execution backend',
+      backendHint: hasBackend
+        ? 'Commands run for real on this machine. IP configuration and adapter restarts need the app started as Administrator.'
+        : 'This page is running in a browser. Install and launch the desktop app to execute commands.',
+      backendIcon: hasBackend ? 'ph-plugs-connected' : 'ph-warning-circle',
+      backendColor: hasBackend ? 'var(--color-accent-700)' : 'var(--color-accent-2-700)',
+      backendBg: hasBackend ? 'var(--color-accent-100)' : 'var(--color-accent-2-100)',
+      backendBorder: hasBackend ? 'var(--color-accent-300)' : 'var(--color-accent-2-300)',
+      newAdminPass: s.newAdminPass,
+      onNewAdminPass: (e) => this.setState({ newAdminPass: e.target.value }),
+      saveAdminPass: () => {
+        const p = s.newAdminPass.trim();
+        if (!p) return;
+        this.setState({ adminPass: p, newAdminPass: '', adminAuthed: false });
+        this.pushLog({ level:'info', task:'System', msg:'Administrator password updated.' });
+      },
+      adminPassHint: s.adminPass === 'admin'
+        ? 'Still on the default password "admin" — change it.'
+        : 'A custom password is set. It guards the Configuration screen only, not the machine.',
+      loginHint: s.adminPass === 'admin' ? 'Default password: admin (change it in User Settings)' : 'Set in User Settings.',
+
+      // status / run control
+      statusDot: s.runState === 'running' ? 'var(--color-accent-500)' : s.runState === 'paused' ? 'var(--color-process-yellow)' : 'var(--color-neutral-400)',
+      statusText: s.runState === 'running' ? 'Running' : s.runState === 'paused' ? 'Paused' : 'Stopped',
+      isIdle: !busy,
+      isActive: busy,
+      startRun: this.startRun,
+      togglePause: () => this.setState(st => ({ runState: st.runState === 'paused' ? 'running' : 'paused' })),
+      pauseLabel: s.runState === 'paused' ? 'Resume' : 'Pause',
+      pauseIcon: s.runState === 'paused' ? 'ph-play' : 'ph-pause',
+      requestStop: () => this.setState({ stopConfirm: true }),
+      cancelStop: () => this.setState({ stopConfirm: false }),
+      confirmStop: () => { this._abort = true; this.setState({ stopConfirm: false, runState: 'running' }); },
+      stopConfirmOpen: s.stopConfirm,
+
+      clearLogs: () => this.setState({ logs: [] }),
+      exportLogs: () => {
+        const text = filtered.map(l => `[${l.time}] ${l.level.toUpperCase()} ${l.task} — ${l.msg}`).join('\n');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type:'text/plain' }));
+        a.download = 'console-log.txt'; a.click();
+        this.pushLog({ level:'info', task:'System', msg:`Exported ${filtered.length} log entries to console-log.txt` });
+      },
+
+      // console
+      setLogRef: this.setLogRef,
+      filteredLogs,
+      noLogs: filteredLogs.length === 0,
+      shownCount: filteredLogs.length,
+      totalCount: s.logs.length,
+      pauseStatus: s.runState === 'running' ? '► Executing' : s.runState === 'paused' ? '❚❚ Paused — finishing the current command first' : '■ Stopped — press Start to run every command in order',
+      commandCount: s.commands.length,
+
+      // edit lock
+      lockClass: s.editMode ? '' : 'cr-lock',
+      toggleEdit: () => this.setState(st => ({ editMode: !st.editMode })),
+      editLabel: s.editMode ? 'Save' : 'Edit',
+      editIcon: s.editMode ? 'ph-floppy-disk' : 'ph-pencil-simple',
+
+      // login
+      loginPass: s.loginPass, loginError: s.loginError,
+      onLoginPass: (e) => this.setState({ loginPass:e.target.value, loginError:'' }),
+      onLoginKey: (e) => { if (e.key === 'Enter') this.submitLogin(); },
+      submitLogin: this.submitLogin, logout: this.logout,
+
+      // shortcuts
+      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.script, onRun: () => this.runShortcut(sc) })),
+      scMenuOpen: s.scMenuOpen,
+      scMenuCaret: s.scMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
+      toggleScMenu: () => this.setState(st => ({ scMenuOpen: !st.scMenuOpen })),
+      scPanelOpen: isConsole && !!s.scPanel,
+      scPanelName: s.scPanel ? s.scPanel.name : '',
+      scPanelScript: s.scPanel ? s.scPanel.script : '',
+      scPanelTime: s.scPanelTime,
+      scLines: s.scLines,
+      setScRef: this.setScRef,
+      rerunShortcut: () => { if (s.scPanel && !s.scBusy) this.runShortcut(s.scPanel); },
+      closeScPanel: () => this.setState({ scPanel:null, scLines:[] }),
+      shortcutsEdit: s.shortcuts.map(sc => ({
+        name:sc.name, script:sc.script,
+        onTest: () => this.runTest(sc.name, { kind:'ps', script: sc.script }),
+        onName: (e) => this._updShortcut(sc.id, { name:e.target.value }),
+        onScript: (e) => this._updShortcut(sc.id, { script:e.target.value }),
+        onDelete: () => this.setState(st => ({ shortcuts: st.shortcuts.filter(x => x.id !== sc.id) })),
+      })),
+      addShortcut: this.addShortcut,
+
+      // test panel
+      testPanelOpen: !!s.testPanel,
+      testPanelName: s.testPanel ? s.testPanel.name : '',
+      testPanelTime: s.testPanelTime,
+      testLines: s.testLines,
+      setTestRef: this.setTestRef,
+      rerunTest: () => { if (s.testPanel && !s.testBusy) this.runTest(s.testPanel.name, s.testPanel.spec); },
+      closeTestPanel: () => this.setState({ testPanel:null, testLines:[] }),
+      testSelected: () => { if (sel) this.runTest(sel.name, this._spec(sel)); },
+
+      // sub tabs
+      subCommandsStyle: tabStyle(s.tab === 'commands'),
+      subShortcutsStyle: tabStyle(s.tab === 'shortcuts'),
+      tabCommands: () => this.setState({ tab:'commands' }),
+      tabShortcuts: () => this.setState({ tab:'shortcuts' }),
+      tabIsCommands: s.tab === 'commands',
+      tabIsShortcuts: s.tab === 'shortcuts',
+
+      // commands
+      addCommand: this.addCommand,
+      commandsView,
+      sel: sel || {},
+      selIsSsh: sel ? sel.type === 'ssh' : false,
+      selIsControl: sel ? sel.type === 'control' : false,
+      scriptFieldStyle: sel && sel.type === 'control' ? 'display:none' : '',
+      rulesWrapStyle: sel && sel.type === 'control' ? 'display:none' : '',
+      scriptLabel: sel && sel.type === 'ssh' ? 'Remote command (runs over SSH)' : 'PowerShell script',
+      onName: (e) => this._update(sel.id, { name:e.target.value }),
+      onType: (e) => this._update(sel.id, { type:e.target.value }),
+      onHost: (e) => this._update(sel.id, { host:e.target.value }),
+      onPort: (e) => this._update(sel.id, { port:e.target.value }),
+      onUser: (e) => this._update(sel.id, { username:e.target.value }),
+      onPass: (e) => this._update(sel.id, { password:e.target.value }),
+      onScript: (e) => this._update(sel.id, { script:e.target.value }),
+      addRule: this.addRule, rulesView,
+
+      // import
+      importOpen: s.importOpen,
+      editorOpen: !s.importOpen && !!sel,
+      openImport: () => this.setState({ importOpen:true }),
+      closeImport: () => this.setState({ importOpen:false }),
+      importName: s.importName,
+      onImportName: (e) => this.setState({ importName:e.target.value }),
+      importText: s.importText,
+      onImportText: (e) => this.setState({ importText:e.target.value }),
+      runImport: this.runImport,
+
+      // computer control
+      cc: s.cc,
+      onCcIp: (e) => this.setState(st => ({ cc:{ ...st.cc, ip:e.target.value } })),
+      onCcMask: (e) => this.setState(st => ({ cc:{ ...st.cc, mask:e.target.value } })),
+      onCcGw: (e) => this.setState(st => ({ cc:{ ...st.cc, gateway:e.target.value } })),
+      onCcDns: (e) => this.setState(st => ({ cc:{ ...st.cc, dns:e.target.value } })),
+      ccCommand: this._ccScript(),
+    };
+  }
+}
+</script>
+</body>
+</html>

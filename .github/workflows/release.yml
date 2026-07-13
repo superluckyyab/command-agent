@@ -1,0 +1,74 @@
+name: "Publish App"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Command Runner ${{ github.ref_name }}"
+          releaseBody: |
+            ## Downloads
+            - **Installer**: `Command.Runner_*_x64-setup.exe` — double-click to install.
+            - **Portable**: `Command.Runner_portable_*.zip` — unzip and run the `.exe`, no install.
+
+            IP configuration and adapter restarts require running the app **as Administrator**.
+          releaseDraft: false
+          prerelease: false
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "Command Runner.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) {
+            $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "command-agent.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if ($exe) {
+            $zipName = "Command.Runner_portable_${{ github.ref_name }}_x64.zip"
+            Compress-Archive -Path $exe.FullName -DestinationPath $zipName
+            echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
+            echo "Packaged: $zipName"
+          } else {
+            echo "Warning: exe not found, skipping portable zip"
+          }
+
+      - name: Upload portable zip to release
+        if: env.ZIP_PATH != '' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.ZIP_PATH }}

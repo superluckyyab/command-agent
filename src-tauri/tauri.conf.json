@@ -1,0 +1,62 @@
+{
+  "build": {
+    "beforeBuildCommand": "node ../build.mjs",
+    "beforeDevCommand": "node ../build.mjs",
+    "devPath": "../dist",
+    "distDir": "../dist",
+    "withGlobalTauri": true
+  },
+  "package": {
+    "productName": "Command Runner",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Utility",
+      "copyright": "",
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.command-runner.app",
+      "longDescription": "Command Runner — configure PowerShell / SSH commands with if-else result logic and run them for real.",
+      "resources": [],
+      "shortDescription": "Windows console & automation",
+      "targets": ["nsis"],
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 680,
+        "resizable": true,
+        "title": "Command Runner",
+        "width": 960,
+        "minWidth": 820,
+        "minHeight": 600
+      }
+    ]
+  }
+}
