@@ -255,6 +255,7 @@
                             <option value="powershell">PowerShell</option>
                             <option value="ssh">SSH (remote)</option>
                             <option value="control">Computer Control</option>
+                            <option value="transfer">File Transfer</option>
                           </select>
                         </div>
                       </div>
@@ -310,6 +311,28 @@
                         <div>
                           <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">Generated command</div>
                           <div style="padding:12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word">{{ ccCommand }}</div>
+                        </div>
+                      </sc-if>
+
+                      <!-- File Transfer fields -->
+                      <sc-if value="{{ selIsTransfer }}" hint-placeholder-val="{{ false }}">
+                        <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                          <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
+                            <i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> File transfer target
+                          </div>
+                          <div class="field"><label>File name (in the files folder)</label><input class="input" value="{{ sel.fileName }}" onInput="{{ onFileName }}"></div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ sel.host }}" onInput="{{ onHost }}"></div>
+                            <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ sel.port }}" onInput="{{ onPort }}"></div>
+                          </div>
+                          <div style="display:flex;gap:10px">
+                            <div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ sel.username }}" onInput="{{ onUser }}"></div>
+                            <div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ sel.password }}" onInput="{{ onPass }}"></div>
+                          </div>
+                          <div class="field"><label>Remote directory</label><input class="input" value="{{ sel.remoteDir }}" onInput="{{ onRemoteDir }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                          <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
+                            <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses <b>pscp</b>. Put <b>pscp.exe</b> in the files folder (or install PuTTY). Password is passed on the command line.
+                          </div>
                         </div>
                       </sc-if>
 
@@ -435,25 +458,6 @@
                     <button class="btn btn-secondary cr-free" onClick="{{ refreshFiles }}" style="flex:none;min-height:28px;padding:3px 10px;font-size:12px"><i class="ph-duotone ph-arrows-clockwise" style="font-size:14px"></i> Refresh</button>
                   </div>
 
-                  <!-- Remote target for pscp transfer -->
-                  <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
-                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
-                      <i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> Remote target (pscp transfer)
-                    </div>
-                    <div style="display:flex;gap:10px">
-                      <div class="field" style="flex:1"><label>Host / IP</label><input class="input cr-free" value="{{ transfer.host }}" onInput="{{ onTransferHost }}"></div>
-                      <div class="field" style="width:74px"><label>Port</label><input class="input cr-free" value="{{ transfer.port }}" onInput="{{ onTransferPort }}"></div>
-                    </div>
-                    <div style="display:flex;gap:10px">
-                      <div class="field" style="flex:1"><label>Username</label><input class="input cr-free" value="{{ transfer.user }}" onInput="{{ onTransferUser }}"></div>
-                      <div class="field" style="flex:1"><label>Password</label><input class="input cr-free" type="password" value="{{ transfer.password }}" onInput="{{ onTransferPass }}"></div>
-                    </div>
-                    <div class="field"><label>Remote directory</label><input class="input cr-free" value="{{ transfer.remoteDir }}" onInput="{{ onTransferRemote }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
-                    <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
-                      <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses <b>pscp</b>. Put <b>pscp.exe</b> in this folder (or install PuTTY). Password is passed on the command line.
-                    </div>
-                  </div>
-
                   <!-- File list -->
                   <div style="display:flex;flex-direction:column;gap:8px">
                     <sc-for list="{{ filesView }}" as="f" hint-placeholder-count="2">
@@ -464,7 +468,6 @@
                           <div class="text-muted" style="font-size:11px">{{ f.sizeLabel }}</div>
                         </div>
                         <button class="btn btn-secondary cr-free" onClick="{{ f.onRun }}" style="flex:none;min-height:30px;padding:4px 10px;font-size:12px"><i class="ph-duotone ph-play" style="font-size:14px"></i> Run</button>
-                        <button class="btn btn-secondary cr-free" onClick="{{ f.onTransfer }}" style="flex:none;min-height:30px;padding:4px 10px;font-size:12px"><i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> Transfer</button>
                         <button class="cr-free" onClick="{{ f.onDelete }}" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:4px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:16px"></i></button>
                       </div>
                     </sc-for>
@@ -484,7 +487,7 @@
                 <div style="display:flex;flex-direction:column;gap:16px;max-width:760px;font-size:13px;line-height:1.7;color:var(--color-text)">
                   <div>
                     <h4 style="margin:0 0 4px">使用手册 — 文件目录与远程传输</h4>
-                    <p class="text-muted" style="margin:0;font-size:12px">Files 目录让你把脚本和工具放在一起，用 PowerShell 直接调用，并一键传到远端服务器。</p>
+                    <p class="text-muted" style="margin:0;font-size:12px">Files 目录让你把脚本和工具放在一起，用 PowerShell 直接调用；远程传输已作为 File Transfer 命令类型集成到 Commands 中。</p>
                   </div>
 
                   <div>
@@ -515,8 +518,9 @@ mytool.exe                    # 目录已在 PATH，exe 可直接按名调用</d
                   <div>
                     <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">4. 怎么传输到远端服务器（pscp）</div>
                     <ul style="margin:0;padding-left:20px">
-                      <li>先在 <b>Files</b> 页的 <b>Remote target</b> 填好：主机 / 端口 / 用户名 / 密码 / 远端目录。</li>
-                      <li>再点该文件的 <b>Transfer</b>，程序用 <code>pscp</code> 把它上传到远端，进度和结果打印到 Console。</li>
+                      <li>在 <b>Commands</b> 页添加一个类型为 <b>File Transfer</b> 的命令。</li>
+                      <li>填写：要上传的文件名（在 files 目录中）、主机 / 端口 / 用户名 / 密码 / 远端目录。</li>
+                      <li>把命令加入列表并运行；程序用 <code>pscp</code> 把它上传到远端，进度和结果打印到 Console。</li>
                       <li>传输依赖 <b>pscp</b>：把 <b>pscp.exe</b>（PuTTY 自带）放进这个 files 目录即可用（目录已在 PATH），或在系统里安装 PuTTY。</li>
                       <li>首次连接某台新主机时，pscp 需要接受主机密钥——程序会自动应答一次；若失败，可在 Console 手动执行一次带确认的命令。</li>
                     </ul>
@@ -594,11 +598,11 @@ class Component extends DCLogic {
     commands: [
       { id:'c1', name:'Ping Gateway', type:'powershell',
         script:'Test-Connection -ComputerName 192.168.1.1 -Count 4',
-        host:'', port:'22', username:'', password:'',
+        host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'',
         rules:[{ cond:'exit0', value:'', thenCmd:'Write-Host "Gateway reachable"', elseCmd:'Write-Host "Gateway UNREACHABLE"' }] },
       { id:'c2', name:'Adapter Status', type:'powershell',
         script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize',
-        host:'', port:'22', username:'', password:'',
+        host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'',
         rules:[] },
     ],
     adapters: [],
@@ -626,12 +630,11 @@ class Component extends DCLogic {
     isAdmin: null,   // null = unknown, true/false once checked via the backend
     filesDir: '',
     files: [],
-    transfer: { host:'', port:'22', user:'', password:'', remoteDir:'/root/' },
     logs: [],
   };
 
   STORE_KEY = 'command-runner-v1';
-  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass', 'transfer'];
+  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass'];
 
   _n = 100;
   _runSeq = 0;
@@ -753,6 +756,15 @@ class Component extends DCLogic {
       return { kind:'ssh', host:cmd.host, port:cmd.port, username:cmd.username, password:cmd.password, script:cmd.script };
     }
     if (cmd.type === 'control') return { kind:'ps', script: this._ccScript() };
+    if (cmd.type === 'transfer') {
+      let remote = (cmd.remoteDir || '').trim() || '.';
+      if (!/[\/\\]$/.test(remote)) remote += '/';
+      const port = String(cmd.port || '22').trim();
+      const file = (cmd.fileName || '').trim() || 'file';
+      const real = `echo y | pscp -pw "${cmd.password || ''}" -P ${port} ".\\${file}" ${cmd.username || ''}@${cmd.host || ''}:"${remote}"`;
+      const masked = `pscp -pw "****" -P ${port} ".\\${file}" ${cmd.username || ''}@${cmd.host || ''}:"${remote}"`;
+      return { kind:'ps', script: real, _masked: masked };
+    }
     return { kind:'ps', script: cmd.script };
   }
 
@@ -777,14 +789,18 @@ class Component extends DCLogic {
   async runCommand(cmd) {
     const task = cmd.name;
     const spec = this._spec(cmd);
-    const kindLabel = cmd.type === 'ssh' ? 'SSH' : cmd.type === 'control' ? 'Computer Control' : 'PowerShell';
+    const kindLabel = cmd.type === 'ssh' ? 'SSH' : cmd.type === 'control' ? 'Computer Control' : cmd.type === 'transfer' ? 'File Transfer' : 'PowerShell';
     this.pushLog({ level:'info', task, msg:`▶ Starting "${task}" (${kindLabel})` });
     if (cmd.type === 'ssh') {
       this.pushLog({ level:'info', task, msg:`Connecting ${cmd.username}@${cmd.host}:${cmd.port} …` });
     }
-    (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => {
-      this.pushLog({ level:'info', task, msg:`$ ${l.trim()}` });
-    });
+    if (cmd.type === 'transfer') {
+      this.pushLog({ level:'info', task, msg:`$ ${spec._masked || spec.script}` });
+    } else {
+      (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => {
+        this.pushLog({ level:'info', task, msg:`$ ${l.trim()}` });
+      });
+    }
 
     let out;
     try {
@@ -854,7 +870,7 @@ class Component extends DCLogic {
   _sel() { return this.state.commands.find(c => c.id === this.state.selectedId); }
   addCommand = () => {
     const id = 'c' + (++this._n) + '-' + Date.now();
-    const cmd = { id, name:'New command', type:'powershell', script:'Write-Host "Hello"', host:'', port:'22', username:'', password:'', rules:[] };
+    const cmd = { id, name:'New command', type:'powershell', script:'Write-Host "Hello"', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'/root/', rules:[] };
     this.setState(s => ({ commands: s.commands.concat(cmd), selectedId: id, tab:'commands', importOpen:false }));
   };
   deleteCommand(id) {
@@ -886,7 +902,7 @@ class Component extends DCLogic {
     const statements = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).length;
     const name = s.importName || 'Imported script';
     const id = 'c' + (++this._n) + '-' + Date.now();
-    const cmd = { id, name, type:'powershell', script:text, host:'', port:'22', username:'', password:'', rules:[] };
+    const cmd = { id, name, type:'powershell', script:text, host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'/root/', rules:[] };
     this.setState(st => ({ commands: st.commands.concat(cmd), selectedId:id, importOpen:false }));
     this.pushLog({ level:'info', task:'System', msg:`✓ Script "${name}" imported as a command (${statements} statements). Run it from the command list.` });
   };
@@ -1039,31 +1055,6 @@ class Component extends DCLogic {
       this.pushLog({ level:'error', task:'Files', msg:`${e.message || e}` });
     }
   }
-  async transferFile(name) {
-    const t = this.state.transfer;
-    if (!t.host.trim() || !t.user.trim()) {
-      this.setState({ screen:'main' });
-      this.pushLog({ level:'warn', task:'Transfer', msg:'Set the remote host and username first (Files → Remote target).' });
-      return;
-    }
-    this.setState({ screen:'main' });
-    let remote = (t.remoteDir || '').trim() || '.';
-    if (!/[\/\\]$/.test(remote)) remote += '/';
-    const port = String(t.port || '22').trim();
-    // echo y | pscp … answers the host-key prompt on first connection.
-    const real = `echo y | pscp -pw "${t.password}" -P ${port} ".\\${name}" ${t.user}@${t.host}:"${remote}"`;
-    const masked = `pscp -pw "****" -P ${port} ".\\${name}" ${t.user}@${t.host}:"${remote}"`;
-    this.pushLog({ level:'info', task:'Transfer', msg:`▶ Transferring "${name}" → ${t.host}:${remote}` });
-    this.pushLog({ level:'info', task:'Transfer', msg:`$ ${masked}` });
-    try {
-      const out = await this.exec({ kind:'ps', script: real },
-        (line, stream) => this.pushLog({ level: stream === 'err' ? 'error' : 'info', task:'Transfer', msg: line }));
-      this.pushLog({ level: out.exit === 0 ? 'info' : 'warn', task:'Transfer', msg:`${out.exit === 0 ? '✓ transferred' : '✗ transfer failed'} (exit ${out.exit})` });
-    } catch (e) {
-      this.pushLog({ level:'error', task:'Transfer', msg:`${e.message || e}` });
-    }
-  }
-
   // ---------- login / nav ----------
   goConsole = () => this.setState({ screen:'main' });
   goUser = () => this.setState({ screen:'user' });
@@ -1103,10 +1094,10 @@ class Component extends DCLogic {
       borderBottom: active ? '2px solid var(--color-accent)' : '2px solid transparent',
     });
 
-    const iconFor = (c) => c.type === 'ssh' ? 'ph-plugs-connected' : c.type === 'control' ? 'ph-network' : 'ph-terminal';
+    const iconFor = (c) => c.type === 'ssh' ? 'ph-plugs-connected' : c.type === 'control' ? 'ph-network' : c.type === 'transfer' ? 'ph-upload-simple' : 'ph-terminal';
     const commandsView = s.commands.map(c => ({
       id:c.id, name:c.name,
-      typeLabel: c.type === 'ssh' ? 'SSH' : c.type === 'control' ? 'Control' : 'PowerShell',
+      typeLabel: c.type === 'ssh' ? 'SSH' : c.type === 'control' ? 'Control' : c.type === 'transfer' ? 'File Transfer' : 'PowerShell',
       icon: iconFor(c),
       rowStyle: {
         display:'flex', alignItems:'center', gap:'8px', padding:'8px 9px', marginTop:'6px', cursor:'pointer',
@@ -1251,7 +1242,7 @@ class Component extends DCLogic {
       tabIsPassword: s.tab === 'password',
       tabIsManual: s.tab === 'manual',
 
-      // files directory + pscp transfer
+      // files directory
       filesDirLabel: s.filesDir || (this._invoke() ? 'Loading…' : 'files\\ (next to the app — desktop app only)'),
       openDir: this.openDir,
       refreshFiles: this.loadFiles,
@@ -1261,15 +1252,8 @@ class Component extends DCLogic {
         sizeLabel: this._fmtSize(f.size),
         icon: this._fileIcon(f.name),
         onRun: () => this.runFile(f.name),
-        onTransfer: () => this.transferFile(f.name),
         onDelete: () => this.deleteFile(f.name),
       })),
-      transfer: s.transfer,
-      onTransferHost: (e) => this.setState(st => ({ transfer:{ ...st.transfer, host:e.target.value } })),
-      onTransferPort: (e) => this.setState(st => ({ transfer:{ ...st.transfer, port:e.target.value } })),
-      onTransferUser: (e) => this.setState(st => ({ transfer:{ ...st.transfer, user:e.target.value } })),
-      onTransferPass: (e) => this.setState(st => ({ transfer:{ ...st.transfer, password:e.target.value } })),
-      onTransferRemote: (e) => this.setState(st => ({ transfer:{ ...st.transfer, remoteDir:e.target.value } })),
 
       // commands
       addCommand: this.addCommand,
@@ -1277,8 +1261,9 @@ class Component extends DCLogic {
       sel: sel || {},
       selIsSsh: sel ? sel.type === 'ssh' : false,
       selIsControl: sel ? sel.type === 'control' : false,
+      selIsTransfer: sel ? sel.type === 'transfer' : false,
       showAdminWarn: s.isAdmin === false,
-      scriptFieldStyle: sel && sel.type === 'control' ? 'display:none' : '',
+      scriptFieldStyle: sel && (sel.type === 'control' || sel.type === 'transfer') ? 'display:none' : '',
       rulesWrapStyle: sel && sel.type === 'control' ? 'display:none' : '',
       scriptLabel: sel && sel.type === 'ssh' ? 'Remote command (runs over SSH)' : 'PowerShell script',
       onName: (e) => this._update(sel.id, { name:e.target.value }),
@@ -1287,6 +1272,8 @@ class Component extends DCLogic {
       onPort: (e) => this._update(sel.id, { port:e.target.value }),
       onUser: (e) => this._update(sel.id, { username:e.target.value }),
       onPass: (e) => this._update(sel.id, { password:e.target.value }),
+      onFileName: (e) => this._update(sel.id, { fileName:e.target.value }),
+      onRemoteDir: (e) => this._update(sel.id, { remoteDir:e.target.value }),
       onScript: (e) => this._update(sel.id, { script:e.target.value }),
       addRule: this.addRule, rulesView,
 
