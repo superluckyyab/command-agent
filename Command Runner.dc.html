@@ -190,7 +190,9 @@
             <div style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--color-divider);flex:none">
               <button class="cr-tab" onClick="{{ tabCommands }}" style="{{ subCommandsStyle }}"><i class="ph-duotone ph-list-checks" style="font-size:15px"></i> Commands</button>
               <button class="cr-tab" onClick="{{ tabShortcuts }}" style="{{ subShortcutsStyle }}"><i class="ph-duotone ph-lightning" style="font-size:15px"></i> Shortcuts</button>
+              <button class="cr-tab cr-free" onClick="{{ tabFiles }}" style="{{ subFilesStyle }}"><i class="ph-duotone ph-folder-open" style="font-size:15px"></i> Files</button>
               <button class="cr-tab cr-free" onClick="{{ tabPassword }}" style="{{ subPasswordStyle }}"><i class="ph-duotone ph-key" style="font-size:15px"></i> Password</button>
+              <button class="cr-tab cr-free" onClick="{{ tabManual }}" style="{{ subManualStyle }}"><i class="ph-duotone ph-book-open" style="font-size:15px"></i> Manual</button>
               <button class="btn btn-secondary cr-free" onClick="{{ toggleEdit }}" style="margin-left:auto;font-size:12px;min-height:28px;padding:4px 10px"><i class="ph-duotone {{ editIcon }}" style="font-size:14px"></i> {{ editLabel }}</button>
               <button class="btn btn-ghost cr-free" onClick="{{ logout }}" style="font-size:12px"><i class="ph-duotone ph-sign-out" style="font-size:15px"></i> Lock</button>
             </div>
@@ -417,6 +419,119 @@
               </div>
             </sc-if>
 
+            <!-- FILES TAB -->
+            <sc-if value="{{ tabIsFiles }}" hint-placeholder-val="{{ false }}">
+              <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px">
+                <div style="display:flex;flex-direction:column;gap:14px;max-width:720px">
+                  <div>
+                    <h4 style="margin:0 0 4px">Files</h4>
+                    <p class="text-muted" style="margin:0;font-size:12px">Drop scripts and tools in this folder. PowerShell runs with this folder as its working directory, on PATH, and as <b>$Dir</b> — so files here can be called directly. See the Manual tab.</p>
+                  </div>
+
+                  <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px">
+                    <i class="ph-duotone ph-folder" style="font-size:15px;flex:none"></i>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ filesDirLabel }}</span>
+                    <button class="btn btn-secondary cr-free" onClick="{{ openDir }}" style="flex:none;min-height:28px;padding:3px 10px;font-size:12px"><i class="ph-duotone ph-folder-open" style="font-size:14px"></i> Open folder</button>
+                    <button class="btn btn-secondary cr-free" onClick="{{ refreshFiles }}" style="flex:none;min-height:28px;padding:3px 10px;font-size:12px"><i class="ph-duotone ph-arrows-clockwise" style="font-size:14px"></i> Refresh</button>
+                  </div>
+
+                  <!-- Remote target for pscp transfer -->
+                  <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
+                      <i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> Remote target (pscp transfer)
+                    </div>
+                    <div style="display:flex;gap:10px">
+                      <div class="field" style="flex:1"><label>Host / IP</label><input class="input cr-free" value="{{ transfer.host }}" onInput="{{ onTransferHost }}"></div>
+                      <div class="field" style="width:74px"><label>Port</label><input class="input cr-free" value="{{ transfer.port }}" onInput="{{ onTransferPort }}"></div>
+                    </div>
+                    <div style="display:flex;gap:10px">
+                      <div class="field" style="flex:1"><label>Username</label><input class="input cr-free" value="{{ transfer.user }}" onInput="{{ onTransferUser }}"></div>
+                      <div class="field" style="flex:1"><label>Password</label><input class="input cr-free" type="password" value="{{ transfer.password }}" onInput="{{ onTransferPass }}"></div>
+                    </div>
+                    <div class="field"><label>Remote directory</label><input class="input cr-free" value="{{ transfer.remoteDir }}" onInput="{{ onTransferRemote }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
+                    <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
+                      <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses <b>pscp</b>. Put <b>pscp.exe</b> in this folder (or install PuTTY). Password is passed on the command line.
+                    </div>
+                  </div>
+
+                  <!-- File list -->
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ filesView }}" as="f" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--color-surface);border-radius:var(--radius-md)">
+                        <i class="ph-duotone {{ f.icon }}" style="font-size:18px;color:var(--color-accent-700);flex:none"></i>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.name }}</div>
+                          <div class="text-muted" style="font-size:11px">{{ f.sizeLabel }}</div>
+                        </div>
+                        <button class="btn btn-secondary cr-free" onClick="{{ f.onRun }}" style="flex:none;min-height:30px;padding:4px 10px;font-size:12px"><i class="ph-duotone ph-play" style="font-size:14px"></i> Run</button>
+                        <button class="btn btn-secondary cr-free" onClick="{{ f.onTransfer }}" style="flex:none;min-height:30px;padding:4px 10px;font-size:12px"><i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> Transfer</button>
+                        <button class="cr-free" onClick="{{ f.onDelete }}" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:4px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:16px"></i></button>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ noFiles }}" hint-placeholder-val="{{ true }}">
+                      <div class="text-muted" style="text-align:center;padding:26px;font-size:13px;border:1px dashed var(--color-divider);border-radius:var(--radius-md)">
+                        No files yet. Click <b>Open folder</b>, drop files in, then <b>Refresh</b>.
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- MANUAL TAB -->
+            <sc-if value="{{ tabIsManual }}" hint-placeholder-val="{{ false }}">
+              <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px 20px">
+                <div style="display:flex;flex-direction:column;gap:16px;max-width:760px;font-size:13px;line-height:1.7;color:var(--color-text)">
+                  <div>
+                    <h4 style="margin:0 0 4px">使用手册 — 文件目录与远程传输</h4>
+                    <p class="text-muted" style="margin:0;font-size:12px">Files 目录让你把脚本和工具放在一起，用 PowerShell 直接调用，并一键传到远端服务器。</p>
+                  </div>
+
+                  <div>
+                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">1. 目录在哪里 · 怎么放文件</div>
+                    <ul style="margin:0;padding-left:20px">
+                      <li>目录是程序 exe 同级的 <b>files</b> 文件夹（首次运行自动创建）。在 <b>Files</b> 页顶部能看到完整路径。</li>
+                      <li>点 <b>Open folder</b> 打开该文件夹，把 <code>.ps1</code> / <code>.bat</code> / <code>.exe</code> / 数据文件拖进去，再点 <b>Refresh</b> 刷新列表。</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">2. PowerShell 怎么调用目录里的文件</div>
+                    <p style="margin:0 0 6px">每次执行命令时，程序会自动：把工作目录切到该文件夹、把它加进 <code>PATH</code>、并设置变量 <b>$Dir</b> 指向它。所以在任意命令 / 脚本 / Shortcut 里都可以这样调用：</p>
+                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">.\deploy.ps1                 # 运行目录里的脚本
+& "$Dir\tool.exe" --version   # 用绝对路径运行工具
+Get-Content .\config.txt      # 读取目录里的数据文件
+mytool.exe                    # 目录已在 PATH，exe 可直接按名调用</div>
+                  </div>
+
+                  <div>
+                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">3. 怎么运行一个文件</div>
+                    <ul style="margin:0;padding-left:20px">
+                      <li>在 <b>Files</b> 列表里点该文件的 <b>Run</b>，输出会打印到 Console。</li>
+                      <li>或在命令里写 <code>&amp; ".\文件名"</code>（例如 <code>&amp; ".\backup.ps1"</code>）。</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">4. 怎么传输到远端服务器（pscp）</div>
+                    <ul style="margin:0;padding-left:20px">
+                      <li>先在 <b>Files</b> 页的 <b>Remote target</b> 填好：主机 / 端口 / 用户名 / 密码 / 远端目录。</li>
+                      <li>再点该文件的 <b>Transfer</b>，程序用 <code>pscp</code> 把它上传到远端，进度和结果打印到 Console。</li>
+                      <li>传输依赖 <b>pscp</b>：把 <b>pscp.exe</b>（PuTTY 自带）放进这个 files 目录即可用（目录已在 PATH），或在系统里安装 PuTTY。</li>
+                      <li>首次连接某台新主机时，pscp 需要接受主机密钥——程序会自动应答一次；若失败，可在 Console 手动执行一次带确认的命令。</li>
+                    </ul>
+                    <p style="margin:6px 0 4px">等价的手动命令（可直接在一条 PowerShell 命令里执行）：</p>
+                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">pscp -pw "密码" -P 22 ".\app.jar" user@10.0.0.9:"/opt/app/"</div>
+                  </div>
+
+                  <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-accent-2-100);border:1px solid var(--color-accent-2-300);font-size:12px;color:var(--color-accent-2-800)">
+                    <i class="ph-duotone ph-warning-circle" style="font-size:16px;flex:none"></i>
+                    <div>注意：Computer Control（改 IP / DNS）、重启网卡等操作需要<b>以管理员身份运行</b>本程序；pscp 的密码会出现在命令行参数中（进程列表可见），仅在可信机器上使用。</div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
             <!-- Test output panel -->
             <sc-if value="{{ testPanelOpen }}" hint-placeholder-val="{{ false }}">
               <div style="flex:none;display:flex;flex-direction:column;max-height:220px;border-top:2px solid var(--color-accent);background:var(--color-surface);animation:crSlideUp 0.22s ease">
@@ -509,11 +624,14 @@ class Component extends DCLogic {
     importName: 'Imported script',
     importText: 'Get-Service -Name Spooler\nGet-NetAdapter | Where-Object Status -eq "Up"\nClear-DnsClientCache',
     isAdmin: null,   // null = unknown, true/false once checked via the backend
+    filesDir: '',
+    files: [],
+    transfer: { host:'', port:'22', user:'', password:'', remoteDir:'/root/' },
     logs: [],
   };
 
   STORE_KEY = 'command-runner-v1';
-  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass'];
+  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass', 'transfer'];
 
   _n = 100;
   _runSeq = 0;
@@ -875,6 +993,77 @@ class Component extends DCLogic {
     }
   };
 
+  // ---------- files directory ----------
+  _fmtSize(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+  _fileIcon(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (ext === 'ps1') return 'ph-file-code';
+    if (ext === 'exe' || ext === 'bat' || ext === 'cmd') return 'ph-file-csv';
+    if (ext === 'zip' || ext === '7z' || ext === 'tar' || ext === 'gz') return 'ph-file-zip';
+    return 'ph-file';
+  }
+  loadFiles = async () => {
+    const invoke = this._invoke();
+    if (!invoke) return;
+    try {
+      const dir = await invoke('get_files_dir');
+      const files = await invoke('list_files');
+      this.setState({ filesDir: dir, files });
+    } catch (e) {
+      this.pushLog({ level:'error', task:'Files', msg:`Could not read files folder: ${e.message || e}` });
+    }
+  };
+  openDir = async () => {
+    const invoke = this._invoke();
+    if (!invoke) return;
+    try { await invoke('open_files_dir'); } catch (e) { this.pushLog({ level:'error', task:'Files', msg:`${e.message || e}` }); }
+  };
+  deleteFile = async (name) => {
+    const invoke = this._invoke();
+    if (!invoke) return;
+    try { await invoke('delete_file', { name }); this.loadFiles(); }
+    catch (e) { this.pushLog({ level:'error', task:'Files', msg:`Could not delete ${name}: ${e.message || e}` }); }
+  };
+  async runFile(name) {
+    this.setState({ screen:'main' });
+    this.pushLog({ level:'info', task:'Files', msg:`▶ Running "${name}"` });
+    try {
+      const out = await this.exec({ kind:'ps', script:`& ".\\${name}"` },
+        (line, stream) => this.pushLog({ level: stream === 'err' ? 'error' : 'info', task:'Files', msg: line }));
+      this.pushLog({ level: out.exit === 0 ? 'info' : 'warn', task:'Files', msg:`${out.exit === 0 ? '✓' : '✗'} "${name}" completed (exit ${out.exit})` });
+    } catch (e) {
+      this.pushLog({ level:'error', task:'Files', msg:`${e.message || e}` });
+    }
+  }
+  async transferFile(name) {
+    const t = this.state.transfer;
+    if (!t.host.trim() || !t.user.trim()) {
+      this.setState({ screen:'main' });
+      this.pushLog({ level:'warn', task:'Transfer', msg:'Set the remote host and username first (Files → Remote target).' });
+      return;
+    }
+    this.setState({ screen:'main' });
+    let remote = (t.remoteDir || '').trim() || '.';
+    if (!/[\/\\]$/.test(remote)) remote += '/';
+    const port = String(t.port || '22').trim();
+    // echo y | pscp … answers the host-key prompt on first connection.
+    const real = `echo y | pscp -pw "${t.password}" -P ${port} ".\\${name}" ${t.user}@${t.host}:"${remote}"`;
+    const masked = `pscp -pw "****" -P ${port} ".\\${name}" ${t.user}@${t.host}:"${remote}"`;
+    this.pushLog({ level:'info', task:'Transfer', msg:`▶ Transferring "${name}" → ${t.host}:${remote}` });
+    this.pushLog({ level:'info', task:'Transfer', msg:`$ ${masked}` });
+    try {
+      const out = await this.exec({ kind:'ps', script: real },
+        (line, stream) => this.pushLog({ level: stream === 'err' ? 'error' : 'info', task:'Transfer', msg: line }));
+      this.pushLog({ level: out.exit === 0 ? 'info' : 'warn', task:'Transfer', msg:`${out.exit === 0 ? '✓ transferred' : '✗ transfer failed'} (exit ${out.exit})` });
+    } catch (e) {
+      this.pushLog({ level:'error', task:'Transfer', msg:`${e.message || e}` });
+    }
+  }
+
   // ---------- login / nav ----------
   goConsole = () => this.setState({ screen:'main' });
   goUser = () => this.setState({ screen:'user' });
@@ -1048,13 +1237,39 @@ class Component extends DCLogic {
       // sub tabs
       subCommandsStyle: tabStyle(s.tab === 'commands'),
       subShortcutsStyle: tabStyle(s.tab === 'shortcuts'),
+      subFilesStyle: tabStyle(s.tab === 'files'),
       subPasswordStyle: tabStyle(s.tab === 'password'),
+      subManualStyle: tabStyle(s.tab === 'manual'),
       tabCommands: () => this.setState({ tab:'commands' }),
       tabShortcuts: () => this.setState({ tab:'shortcuts' }),
+      tabFiles: () => { this.setState({ tab:'files' }); this.loadFiles(); },
       tabPassword: () => this.setState({ tab:'password' }),
+      tabManual: () => this.setState({ tab:'manual' }),
       tabIsCommands: s.tab === 'commands',
       tabIsShortcuts: s.tab === 'shortcuts',
+      tabIsFiles: s.tab === 'files',
       tabIsPassword: s.tab === 'password',
+      tabIsManual: s.tab === 'manual',
+
+      // files directory + pscp transfer
+      filesDirLabel: s.filesDir || (this._invoke() ? 'Loading…' : 'files\\ (next to the app — desktop app only)'),
+      openDir: this.openDir,
+      refreshFiles: this.loadFiles,
+      noFiles: s.files.length === 0,
+      filesView: s.files.map(f => ({
+        name: f.name,
+        sizeLabel: this._fmtSize(f.size),
+        icon: this._fileIcon(f.name),
+        onRun: () => this.runFile(f.name),
+        onTransfer: () => this.transferFile(f.name),
+        onDelete: () => this.deleteFile(f.name),
+      })),
+      transfer: s.transfer,
+      onTransferHost: (e) => this.setState(st => ({ transfer:{ ...st.transfer, host:e.target.value } })),
+      onTransferPort: (e) => this.setState(st => ({ transfer:{ ...st.transfer, port:e.target.value } })),
+      onTransferUser: (e) => this.setState(st => ({ transfer:{ ...st.transfer, user:e.target.value } })),
+      onTransferPass: (e) => this.setState(st => ({ transfer:{ ...st.transfer, password:e.target.value } })),
+      onTransferRemote: (e) => this.setState(st => ({ transfer:{ ...st.transfer, remoteDir:e.target.value } })),
 
       // commands
       addCommand: this.addCommand,

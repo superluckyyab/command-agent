@@ -140,6 +140,17 @@ async fn run_powershell(
     run_id: String,
     script: String,
 ) -> Result<ExecResult, String> {
+    // Make the files/ folder the working directory, put it on PATH, and expose
+    // it as $Dir so scripts and tools dropped there can be called by name
+    // (`.\deploy.ps1`, `pscp …`, `$Dir\tool.exe`).
+    let dir_setup = match files_dir() {
+        Ok(dir) => {
+            let d = dir.to_string_lossy().replace('\'', "''");
+            format!("$Dir = '{d}'; Set-Location -LiteralPath $Dir; $env:Path = \"$Dir;\" + $env:Path;\n")
+        }
+        Err(_) => String::new(),
+    };
+
     let mut cmd = tokio::process::Command::new("powershell");
     cmd.args([
         "-NoProfile",
@@ -147,7 +158,7 @@ async fn run_powershell(
         "-ExecutionPolicy",
         "Bypass",
         "-EncodedCommand",
-        &encode_ps(&script),
+        &encode_ps(&format!("{dir_setup}{script}")),
     ]);
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -328,7 +339,14 @@ async fn run_ssh(
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_powershell, run_ssh])
+        .invoke_handler(tauri::generate_handler![
+            run_powershell,
+            run_ssh,
+            get_files_dir,
+            list_files,
+            delete_file,
+            open_files_dir
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
