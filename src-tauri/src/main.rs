@@ -24,10 +24,26 @@ fn emit_line(window: &Window, run_id: &str, line: &str, stream: &str) {
     );
 }
 
+/// Decode one accumulated line (bytes up to and including `\n`) with a lossy
+/// UTF-8 conversion, strip the trailing CR/LF, and clear the buffer for reuse.
+fn take_line(buf: &mut Vec<u8>) -> String {
+    while matches!(buf.last(), Some(b'\n') | Some(b'\r')) {
+        buf.pop();
+    }
+    let s = String::from_utf8_lossy(buf).into_owned();
+    buf.clear();
+    s
+}
+
 /// PowerShell wants its script as base64 of UTF-16LE (`-EncodedCommand`); that
 /// sidesteps every quoting/escaping problem with multi-line scripts.
 fn encode_ps(script: &str) -> String {
-    let prelude = "$ErrorActionPreference='Continue';\
+    // `chcp 65001` switches the hidden console to UTF-8 so native tools
+    // (ipconfig, netsh, …) emit UTF-8 instead of the locale's OEM code page —
+    // otherwise their non-ASCII lines are garbled. The encoding assignments
+    // align PowerShell's own streams to match.
+    let prelude = "chcp 65001 > $null;\
+                   $ErrorActionPreference='Continue';\
                    $OutputEncoding=[Console]::OutputEncoding=[Text.Encoding]::UTF8;\n";
     let full = format!("{prelude}{script}");
     let mut bytes = Vec::with_capacity(full.len() * 2);
@@ -69,26 +85,35 @@ async fn run_powershell(
         .spawn()
         .map_err(|e| format!("could not start PowerShell: {e}"))?;
 
-    let mut out_reader = BufReader::new(child.stdout.take().unwrap()).lines();
-    let mut err_reader = BufReader::new(child.stderr.take().unwrap()).lines();
+    // Read raw bytes, not UTF-8 `Lines`: native tools emit locale bytes that
+    // aren't valid UTF-8, and `Lines::next_line` would return Err and abort the
+    // whole stream on the first such line. `read_until` + lossy decode keeps
+    // reading. The buffers live outside the select so a branch cancelled by the
+    // other completing keeps its partial line for the next poll.
+    let mut out_reader = BufReader::new(child.stdout.take().unwrap());
+    let mut err_reader = BufReader::new(child.stderr.take().unwrap());
+    let (mut out_buf, mut err_buf) = (Vec::new(), Vec::new());
 
     let mut stdout = String::new();
     let mut stderr = String::new();
-    // Per-stream `done` guards disable a branch once its reader closes, so the
-    // select never spins when one stream ends while the other is still running.
     let (mut out_done, mut err_done) = (false, false);
     while !(out_done && err_done) {
         tokio::select! {
-            line = out_reader.next_line(), if !out_done => match line {
-                Ok(Some(l)) => { emit_line(&window, &run_id, &l, "out"); stdout.push_str(&l); stdout.push('\n'); }
-                _ => out_done = true,
+            r = out_reader.read_until(b'\n', &mut out_buf), if !out_done => match r {
+                Ok(0) => out_done = true,
+                Ok(_) => { let l = take_line(&mut out_buf); emit_line(&window, &run_id, &l, "out"); stdout.push_str(&l); stdout.push('\n'); }
+                Err(_) => out_done = true,
             },
-            line = err_reader.next_line(), if !err_done => match line {
-                Ok(Some(l)) => { emit_line(&window, &run_id, &l, "err"); stderr.push_str(&l); stderr.push('\n'); }
-                _ => err_done = true,
+            r = err_reader.read_until(b'\n', &mut err_buf), if !err_done => match r {
+                Ok(0) => err_done = true,
+                Ok(_) => { let l = take_line(&mut err_buf); emit_line(&window, &run_id, &l, "err"); stderr.push_str(&l); stderr.push('\n'); }
+                Err(_) => err_done = true,
             },
         }
     }
+    // Emit any final line that had no trailing newline.
+    if !out_buf.is_empty() { let l = take_line(&mut out_buf); emit_line(&window, &run_id, &l, "out"); stdout.push_str(&l); stdout.push('\n'); }
+    if !err_buf.is_empty() { let l = take_line(&mut err_buf); emit_line(&window, &run_id, &l, "err"); stderr.push_str(&l); stderr.push('\n'); }
 
     let status = child.wait().await.map_err(|e| e.to_string())?;
     Ok(ExecResult {
