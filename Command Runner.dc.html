@@ -286,6 +286,14 @@
 
                       <!-- Computer Control fields -->
                       <sc-if value="{{ selIsControl }}" hint-placeholder-val="{{ false }}">
+                        <sc-if value="{{ showAdminWarn }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-accent-2-100);border:1px solid var(--color-accent-2-300)">
+                            <i class="ph-duotone ph-shield-warning" style="font-size:18px;color:var(--color-accent-2-700);flex:none"></i>
+                            <div style="flex:1;min-width:0;font-size:12px;color:var(--color-accent-2-800)">
+                              <b>Not running as Administrator.</b> Changing IP / DNS needs elevation — it will fail with "Access is denied". Close the app and right-click it → <b>Run as administrator</b>.
+                            </div>
+                          </div>
+                        </sc-if>
                         <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
                           <div class="field">
                             <label>Network adapter / port</label>
@@ -507,6 +515,7 @@ class Component extends DCLogic {
     importOpen: false,
     importName: 'Imported script',
     importText: 'Get-Service -Name Spooler\nGet-NetAdapter | Where-Object Status -eq "Up"\nClear-DnsClientCache',
+    isAdmin: null,   // null = unknown, true/false once checked via the backend
     logs: [],
   };
 
@@ -551,6 +560,19 @@ class Component extends DCLogic {
       ? 'Command Runner ready — local execution backend connected.'
       : 'No execution backend: running in a browser. Commands will not execute — use the packaged desktop app.' });
     this.refreshAdapters(true);
+    this.checkAdmin();
+  }
+
+  // Ask the backend whether the process is elevated. IP configuration and
+  // adapter restarts fail with "Access is denied" without Administrator rights.
+  async checkAdmin() {
+    if (!this._invoke()) return;
+    try {
+      const out = await this.exec({ kind:'ps', script:'(New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)' });
+      const admin = out.stdout.trim().toLowerCase() === 'true';
+      this.setState({ isAdmin: admin });
+      if (!admin) this.pushLog({ level:'warn', task:'System', msg:'Not running as Administrator — IP configuration and adapter restarts will be denied. Right-click the app → Run as administrator.' });
+    } catch (e) {}
   }
 
   // The dc-runtime only hands componentDidUpdate prevProps, never prevState, so
@@ -1047,6 +1069,7 @@ class Component extends DCLogic {
       sel: sel || {},
       selIsSsh: sel ? sel.type === 'ssh' : false,
       selIsControl: sel ? sel.type === 'control' : false,
+      showAdminWarn: s.isAdmin === false,
       scriptFieldStyle: sel && sel.type === 'control' ? 'display:none' : '',
       rulesWrapStyle: sel && sel.type === 'control' ? 'display:none' : '',
       scriptLabel: sel && sel.type === 'ssh' ? 'Remote command (runs over SSH)' : 'PowerShell script',

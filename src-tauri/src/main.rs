@@ -39,13 +39,16 @@ fn take_line(buf: &mut Vec<u8>) -> String {
 /// sidesteps every quoting/escaping problem with multi-line scripts.
 fn encode_ps(script: &str) -> String {
     // `chcp 65001` switches the hidden console to UTF-8 so native tools
-    // (ipconfig, netsh, …) emit UTF-8 instead of the locale's OEM code page —
-    // otherwise their non-ASCII lines are garbled. The encoding assignments
-    // align PowerShell's own streams to match.
+    // (ipconfig, netsh, …) emit UTF-8 instead of the locale's OEM code page.
+    // `$ProgressPreference=SilentlyContinue` stops progress records from being
+    // dumped as CLIXML on stderr. Wrapping the script in `& { … } 2>&1` merges
+    // the error stream into stdout so failures like "Access is denied" arrive
+    // as plain readable text instead of a CLIXML blob.
     let prelude = "chcp 65001 > $null;\
                    $ErrorActionPreference='Continue';\
+                   $ProgressPreference='SilentlyContinue';\
                    $OutputEncoding=[Console]::OutputEncoding=[Text.Encoding]::UTF8;\n";
-    let full = format!("{prelude}{script}");
+    let full = format!("{prelude}& {{\n{script}\n}} 2>&1\n");
     let mut bytes = Vec::with_capacity(full.len() * 2);
     for u in full.encode_utf16() {
         bytes.extend_from_slice(&u.to_le_bytes());

@@ -32,6 +32,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          (Get-Content src-tauri/tauri.conf.json -Raw) -replace '("version"\s*:\s*)"[^"]*"', "`${1}""$v""" | Set-Content src-tauri/tauri.conf.json -NoNewline -Encoding UTF8
+          (Get-Content src-tauri/Cargo.toml -Raw) -replace '(?m)^version = "[^"]*"', "version = ""$v""" | Set-Content src-tauri/Cargo.toml -NoNewline -Encoding UTF8
+          Write-Host "Version set to $v"
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
