@@ -32,7 +32,9 @@
       ],
       "identifier": "com.command-runner.app",
       "longDescription": "Command Runner — configure PowerShell / SSH commands with if-else result logic and run them for real.",
-      "resources": [],
+      "resources": [
+        "../tools"
+      ],
       "shortDescription": "Windows console & automation",
       "targets": ["nsis"],
       "windows": {

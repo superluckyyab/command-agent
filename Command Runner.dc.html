@@ -331,7 +331,7 @@
                           </div>
                           <div class="field"><label>Remote directory</label><input class="input" value="{{ sel.remoteDir }}" onInput="{{ onRemoteDir }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
                           <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
-                            <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses <b>pscp</b>. Put <b>pscp.exe</b> in the files folder (or install PuTTY). Password is passed on the command line.
+                            <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses the bundled <b>pscp.exe</b> in the <code>tools</code> folder (falls back to PATH). Password is passed on the command line.
                           </div>
                         </div>
                       </sc-if>
@@ -516,21 +516,22 @@ mytool.exe                    # 目录已在 PATH，exe 可直接按名调用</d
                   </div>
 
                   <div>
-                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">4. 怎么传输到远端服务器（pscp）</div>
+                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">4. SSH 远端命令 / 文件传输（plink &amp; pscp）</div>
                     <ul style="margin:0;padding-left:20px">
-                      <li>在 <b>Commands</b> 页添加一个类型为 <b>File Transfer</b> 的命令。</li>
-                      <li>填写：要上传的文件名（在 files 目录中）、主机 / 端口 / 用户名 / 密码 / 远端目录。</li>
-                      <li>把命令加入列表并运行；程序用 <code>pscp</code> 把它上传到远端，进度和结果打印到 Console。</li>
-                      <li>传输依赖 <b>pscp</b>：把 <b>pscp.exe</b>（PuTTY 自带）放进这个 files 目录即可用（目录已在 PATH），或在系统里安装 PuTTY。</li>
-                      <li>首次连接某台新主机时，pscp 需要接受主机密钥——程序会自动应答一次；若失败，可在 Console 手动执行一次带确认的命令。</li>
+                      <li>程序自带 <code>tools/plink.exe</code> 和 <code>tools/pscp.exe</code>，并把 <code>tools</code> 目录加进 PATH。</li>
+                      <li>添加 <b>SSH</b> 类型命令时，程序用 <code>plink -ssh user@host -P port -pw pass -batch "命令"</code> 登录执行。</li>
+                      <li>添加 <b>File Transfer</b> 类型命令时，程序用 <code>pscp -pw pass -P port ".\文件" user@host:"/远端目录/"</code> 上传。</li>
+                      <li>首次连接新主机时，程序会先 pipe 一个 <code>yes</code> 来自动接受主机密钥；失败可手动在 Console 执行一次确认。</li>
+                      <li>如果 bundled 工具被删除，会回退到系统 PATH 中的 <code>plink</code> / <code>pscp</code>。</li>
                     </ul>
-                    <p style="margin:6px 0 4px">等价的手动命令（可直接在一条 PowerShell 命令里执行）：</p>
-                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">pscp -pw "密码" -P 22 ".\app.jar" user@10.0.0.9:"/opt/app/"</div>
+                    <p style="margin:6px 0 4px">等价的手动命令（可直接在 PowerShell 里执行）：</p>
+                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">& "$Dir\..\tools\plink.exe" -ssh user@10.0.0.9 -P 22 -pw "密码" -batch "ls -la"
+& "$Dir\..\tools\pscp.exe" -pw "密码" -P 22 ".\app.jar" user@10.0.0.9:"/opt/app/"</div>
                   </div>
 
                   <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-accent-2-100);border:1px solid var(--color-accent-2-300);font-size:12px;color:var(--color-accent-2-800)">
                     <i class="ph-duotone ph-warning-circle" style="font-size:16px;flex:none"></i>
-                    <div>注意：Computer Control（改 IP / DNS）、重启网卡等操作需要<b>以管理员身份运行</b>本程序；pscp 的密码会出现在命令行参数中（进程列表可见），仅在可信机器上使用。</div>
+                    <div>注意：Computer Control（改 IP / DNS）、重启网卡等操作需要<b>以管理员身份运行</b>本程序；plink / pscp 的密码会出现在命令行参数中（进程列表可见），仅在可信机器上使用。</div>
                   </div>
                 </div>
               </div>
@@ -715,6 +716,7 @@ class Component extends DCLogic {
 
   _now() { return new Date().toLocaleTimeString('en-GB'); }
   _mk(e) { return { id: ++this._n, time: this._now(), level: e.level, task: e.task, msg: e.msg }; }
+  _psQuote(s) { return `'${(s || '').replace(/'/g, "''")}'`; }
   pushLog(e) {
     this.setState(s => {
       const logs = s.logs.concat(this._mk(e));
@@ -753,7 +755,19 @@ class Component extends DCLogic {
 
   _spec(cmd) {
     if (cmd.type === 'ssh') {
-      return { kind:'ssh', host:cmd.host, port:cmd.port, username:cmd.username, password:cmd.password, script:cmd.script };
+      const host = (cmd.host || '').trim();
+      const port = String(cmd.port || '22').trim();
+      const user = (cmd.username || '').trim();
+      const pass = cmd.password || '';
+      const script = (cmd.script || '').trim();
+      const target = `${user}@${host}`;
+      const real = `$env:Path = (Join-Path $Dir "..\\tools\\") + ";" + $env:Path
+$plinkPath = Join-Path $Dir "..\\tools\\plink.exe"
+$plink = if (Test-Path -LiteralPath $plinkPath) { $plinkPath } else { 'plink' }
+"yes" | & $plink -ssh ${this._psQuote(target)} -P ${port} -pw ${this._psQuote(pass)} "exit" 2>$null
+& $plink -ssh ${this._psQuote(target)} -P ${port} -pw ${this._psQuote(pass)} -batch ${this._psQuote(script)}`;
+      const masked = `plink -ssh ${target} -P ${port} -batch <remote command>`;
+      return { kind:'ps', script: real, _masked: masked };
     }
     if (cmd.type === 'control') return { kind:'ps', script: this._ccScript() };
     if (cmd.type === 'transfer') {
@@ -761,8 +775,15 @@ class Component extends DCLogic {
       if (!/[\/\\]$/.test(remote)) remote += '/';
       const port = String(cmd.port || '22').trim();
       const file = (cmd.fileName || '').trim() || 'file';
-      const real = `echo y | pscp -pw "${cmd.password || ''}" -P ${port} ".\\${file}" ${cmd.username || ''}@${cmd.host || ''}:"${remote}"`;
-      const masked = `pscp -pw "****" -P ${port} ".\\${file}" ${cmd.username || ''}@${cmd.host || ''}:"${remote}"`;
+      const user = (cmd.username || '').trim();
+      const pass = cmd.password || '';
+      const host = (cmd.host || '').trim();
+      const target = `${user}@${host}:${remote}`;
+      const real = `$env:Path = (Join-Path $Dir "..\\tools\\") + ";" + $env:Path
+$pscpPath = Join-Path $Dir "..\\tools\\pscp.exe"
+$pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
+"yes" | & $pscp -pw ${this._psQuote(pass)} -P ${port} ${this._psQuote(`.\\${file}`)} ${this._psQuote(target)}`;
+      const masked = `pscp -pw **** -P ${port} ".\\${file}" ${user}@${host}:${remote}`;
       return { kind:'ps', script: real, _masked: masked };
     }
     return { kind:'ps', script: cmd.script };
@@ -794,8 +815,8 @@ class Component extends DCLogic {
     if (cmd.type === 'ssh') {
       this.pushLog({ level:'info', task, msg:`Connecting ${cmd.username}@${cmd.host}:${cmd.port} …` });
     }
-    if (cmd.type === 'transfer') {
-      this.pushLog({ level:'info', task, msg:`$ ${spec._masked || spec.script}` });
+    if (spec._masked) {
+      this.pushLog({ level:'info', task, msg:`$ ${spec._masked}` });
     } else {
       (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => {
         this.pushLog({ level:'info', task, msg:`$ ${l.trim()}` });
@@ -938,7 +959,7 @@ class Component extends DCLogic {
       if (this._testEl) this._testEl.scrollTop = this._testEl.scrollHeight;
     };
     this.setState({ testPanel:{ name, spec }, testPanelTime:this._now(), testLines:[], testBusy:true });
-    (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => append(`$ ${l.trim()}`));
+    if (spec._masked) { append(`$ ${spec._masked}`); } else { (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => append(`$ ${l.trim()}`)); }
     try {
       const out = await this.exec(spec, line => append(line));
       append(`${out.exit === 0 ? '✓' : '✗'} test finished (exit ${out.exit})`);

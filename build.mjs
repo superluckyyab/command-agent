@@ -39,5 +39,9 @@ fs.writeFileSync(path.join(dist, 'index.html'), html);
 fs.copyFileSync(path.join(root, 'support.js'), path.join(dist, 'support.js'));
 fs.copyFileSync(path.join(root, 'styles.css'), path.join(dist, 'styles.css'));
 fs.cpSync(path.join(root, 'vendor'), path.join(dist, 'vendor'), { recursive: true });
+const toolsDir = path.join(root, 'tools');
+if (fs.existsSync(toolsDir)) {
+  fs.cpSync(toolsDir, path.join(dist, 'tools'), { recursive: true, force: true });
+}
 
-console.log('build.mjs: wrote dist/ (index.html, support.js, styles.css, vendor/)');
+console.log('build.mjs: wrote dist/ (index.html, support.js, styles.css, vendor/' + (fs.existsSync(toolsDir) ? ', tools/' : '') + ')');
