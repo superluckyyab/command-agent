@@ -66,8 +66,11 @@ jobs:
           }
           if ($exe) {
             $zipName = "Command.Runner_portable_${{ github.ref_name }}_x64.zip"
-            $paths = @($exe.FullName, "factory-config")
-            Compress-Archive -Path $paths -DestinationPath $zipName
+            $portableDir = Join-Path $PWD "portable-release"
+            New-Item -ItemType Directory -Path $portableDir | Out-Null
+            Copy-Item $exe.FullName -Destination $portableDir
+            Copy-Item "src-tauri/factory-config" -Destination $portableDir -Recurse
+            Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $zipName
             echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
             echo "Packaged: $zipName"
           } else {

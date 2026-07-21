@@ -9,7 +9,7 @@ import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, 'dist');
-const factoryDir = path.join(root, 'factory-config');
+const factoryDir = path.join(root, 'src-tauri', 'factory-config');
 const factoryKey = randomBytes(32);
 const adminSalt = randomBytes(32);
 const adminHash = createHash('sha256').update(adminSalt).update('admin').digest('base64');
