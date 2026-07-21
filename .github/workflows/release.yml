@@ -69,7 +69,7 @@ jobs:
             $portableDir = Join-Path $PWD "portable-release"
             New-Item -ItemType Directory -Path $portableDir | Out-Null
             Copy-Item $exe.FullName -Destination $portableDir
-            Copy-Item "src-tauri/factory-config" -Destination $portableDir -Recurse
+            Copy-Item "src-tauri/config" -Destination $portableDir -Recurse
             Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $zipName
             echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
             echo "Packaged: $zipName"

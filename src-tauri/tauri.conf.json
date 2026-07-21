@@ -34,7 +34,7 @@
       "longDescription": "Command Runner — configure PowerShell / SSH commands with if-else result logic and run them for real.",
       "resources": [
         "../tools",
-        "factory-config"
+        "config"
       ],
       "shortDescription": "Windows console & automation",
       "targets": ["nsis"],

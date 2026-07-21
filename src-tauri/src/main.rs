@@ -47,16 +47,20 @@ fn app_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "cannot resolve executable directory".into())
 }
 
+fn config_dir() -> Result<PathBuf, String> {
+    Ok(app_dir()?.join("config"))
+}
+
 fn config_path() -> Result<PathBuf, String> {
-    Ok(app_dir()?.join("command-runner.config.enc"))
+    Ok(config_dir()?.join("command-runner.config.enc"))
 }
 
 fn key_path() -> Result<PathBuf, String> {
-    Ok(app_dir()?.join(".command-runner.key"))
+    Ok(config_dir()?.join(".command-runner.key"))
 }
 
 fn factory_marker_path() -> Result<PathBuf, String> {
-    Ok(app_dir()?.join(".command-runner.factory-provisioned"))
+    Ok(config_dir()?.join(".command-runner.factory-provisioned"))
 }
 
 fn provision_factory_config(factory_dir: &Path) -> Result<(), String> {
@@ -70,6 +74,7 @@ fn provision_factory_config(factory_dir: &Path) -> Result<(), String> {
     }
     let factory_config = factory_dir.join("command-runner.config.enc");
     let factory_key = factory_dir.join(".command-runner.key");
+    std::fs::create_dir_all(config_dir()?).map_err(|e| e.to_string())?;
     std::fs::copy(&factory_config, &config).map_err(|_| "factory encrypted configuration is missing".to_string())?;
     std::fs::copy(&factory_key, &key).map_err(|_| "factory configuration key is missing".to_string())?;
     std::fs::write(factory_marker_path()?, b"provisioned").map_err(|e| e.to_string())?;
@@ -488,7 +493,7 @@ fn main() {
         .setup(|app| {
             let factory_config = app
                 .path_resolver()
-                .resolve_resource("factory-config/command-runner.config.enc")
+                .resolve_resource("config/command-runner.config.enc")
                 .ok_or_else(|| std::io::Error::other("factory encrypted configuration resource is missing"))?;
             let factory_dir = factory_config
                 .parent()

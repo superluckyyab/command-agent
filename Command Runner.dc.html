@@ -774,14 +774,7 @@ class Component extends DCLogic {
       const user = (cmd.username || '').trim();
       const pass = cmd.password || '';
       const script = (cmd.script || '').trim();
-      const target = `${user}@${host}`;
-      const real = `$env:Path = (Join-Path $Dir "..\\tools\\") + ";" + $env:Path
-$plinkPath = Join-Path $Dir "..\\tools\\plink.exe"
-$plink = if (Test-Path -LiteralPath $plinkPath) { $plinkPath } else { 'plink' }
-"yes" | & $plink -ssh ${this._psQuote(target)} -P ${port} -pw ${this._psQuote(pass)} "exit" 2>$null
-& $plink -ssh ${this._psQuote(target)} -P ${port} -pw ${this._psQuote(pass)} -batch ${this._psQuote(script)}`;
-      const masked = `plink -ssh ${target} -P ${port} -batch <remote command>`;
-      return { kind:'ps', script: real, _masked: masked };
+      return { kind:'ssh', host, port, username:user, password:pass, script, _masked:`ssh ${user}@${host}:${port} <remote command>` };
     }
     if (cmd.type === 'control') return { kind:'ps', script: this._ccScript() };
     if (cmd.type === 'transfer') {

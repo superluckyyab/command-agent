@@ -1,7 +1,7 @@
 node_modules/
 dist/
-factory-config/
-src-tauri/factory-config/
+config/
+src-tauri/config/
 src-tauri/target/
 *.log
 
