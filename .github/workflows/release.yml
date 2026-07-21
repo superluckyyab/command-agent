@@ -66,11 +66,7 @@ jobs:
           }
           if ($exe) {
             $zipName = "Command.Runner_portable_${{ github.ref_name }}_x64.zip"
-            $paths = @($exe.FullName)
-            $resources = Join-Path $exe.DirectoryName "resources"
-            if (Test-Path $resources) {
-              $paths += $resources
-            }
+            $paths = @($exe.FullName, "factory-config")
             Compress-Archive -Path $paths -DestinationPath $zipName
             echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
             echo "Packaged: $zipName"
