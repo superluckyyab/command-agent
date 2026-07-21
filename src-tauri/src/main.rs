@@ -5,10 +5,16 @@
 //! back to the front end line by line over the `exec://line` event and return a
 //! final `{ stdout, stderr, code }` once the command exits.
 
+use aes_gcm::aead::Aead;
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::Engine;
-use serde::Serialize;
-use std::path::PathBuf;
-use tauri::Window;
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tauri::{State, Window};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 #[derive(Serialize)]
@@ -22,6 +28,146 @@ struct ExecResult {
 struct FileEntry {
     name: String,
     size: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StoredConfig {
+    version: u8,
+    admin_salt: String,
+    admin_hash: String,
+    settings: serde_json::Value,
+}
+
+struct AuthState(Mutex<HashSet<String>>);
+
+fn app_dir() -> Result<PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    exe.parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| "cannot resolve executable directory".into())
+}
+
+fn config_path() -> Result<PathBuf, String> {
+    Ok(app_dir()?.join("command-runner.config.enc"))
+}
+
+fn key_path() -> Result<PathBuf, String> {
+    Ok(app_dir()?.join(".command-runner.key"))
+}
+
+fn factory_marker_path() -> Result<PathBuf, String> {
+    Ok(app_dir()?.join(".command-runner.factory-provisioned"))
+}
+
+fn provision_factory_config(factory_dir: &Path) -> Result<(), String> {
+    let config = config_path()?;
+    let key = key_path()?;
+    if config.exists() && key.exists() {
+        return Ok(());
+    }
+    if config.exists() || key.exists() || factory_marker_path()?.exists() {
+        return Err("encrypted factory configuration is missing or incomplete; reinstall the application".into());
+    }
+    let factory_config = factory_dir.join("command-runner.config.enc");
+    let factory_key = factory_dir.join(".command-runner.key");
+    std::fs::copy(&factory_config, &config).map_err(|_| "factory encrypted configuration is missing".to_string())?;
+    std::fs::copy(&factory_key, &key).map_err(|_| "factory configuration key is missing".to_string())?;
+    std::fs::write(factory_marker_path()?, b"provisioned").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn config_key() -> Result<[u8; 32], String> {
+    let path = key_path()?;
+    let key = std::fs::read(&path)
+        .map_err(|_| "encrypted configuration key is missing; reinstall the application".to_string())?;
+    key.try_into().map_err(|_| "invalid configuration key".into())
+}
+
+fn password_hash(salt: &[u8], password: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(salt);
+    hash.update(password.as_bytes());
+    base64::engine::general_purpose::STANDARD.encode(hash.finalize())
+}
+
+fn save_stored_config(config: &StoredConfig) -> Result<(), String> {
+    let key = config_key()?;
+    let plain = serde_json::to_vec(config).map_err(|e| e.to_string())?;
+    let mut nonce = [0_u8; 12];
+    rand::thread_rng().fill_bytes(&mut nonce);
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| e.to_string())?;
+    let encrypted = cipher.encrypt(Nonce::from_slice(&nonce), plain.as_ref()).map_err(|e| e.to_string())?;
+    let mut output = nonce.to_vec();
+    output.extend_from_slice(&encrypted);
+    std::fs::write(config_path()?, output).map_err(|e| e.to_string())
+}
+
+fn load_stored_config() -> Result<StoredConfig, String> {
+    let path = config_path()?;
+    if !path.exists() {
+        return Err("encrypted configuration is missing; reinstall the application".into());
+    }
+    let encrypted = std::fs::read(path).map_err(|e| e.to_string())?;
+    if encrypted.len() <= 12 {
+        return Err("invalid encrypted configuration".into());
+    }
+    let key = config_key()?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| e.to_string())?;
+    let plain = cipher
+        .decrypt(Nonce::from_slice(&encrypted[..12]), &encrypted[12..])
+        .map_err(|_| "cannot decrypt configuration".to_string())?;
+    serde_json::from_slice(&plain).map_err(|e| e.to_string())
+}
+
+fn require_session(state: &AuthState, token: &str) -> Result<(), String> {
+    if state.0.lock().map_err(|_| "authentication state unavailable")?.contains(token) {
+        Ok(())
+    } else {
+        Err("administrator authentication required".into())
+    }
+}
+
+#[tauri::command]
+fn load_config() -> Result<serde_json::Value, String> {
+    Ok(load_stored_config()?.settings)
+}
+
+#[tauri::command]
+fn login_admin(password: String, state: State<AuthState>) -> Result<String, String> {
+    let config = load_stored_config()?;
+    let salt = base64::engine::general_purpose::STANDARD
+        .decode(config.admin_salt)
+        .map_err(|_| "invalid administrator credentials")?;
+    if password_hash(&salt, &password) != config.admin_hash {
+        return Err("incorrect password".into());
+    }
+    let mut session = [0_u8; 32];
+    rand::thread_rng().fill_bytes(&mut session);
+    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(session);
+    state.0.lock().map_err(|_| "authentication state unavailable")?.insert(token.clone());
+    Ok(token)
+}
+
+#[tauri::command]
+fn save_config(token: String, config: serde_json::Value, state: State<AuthState>) -> Result<(), String> {
+    require_session(&state, &token)?;
+    let mut stored = load_stored_config()?;
+    stored.settings = config;
+    save_stored_config(&stored)
+}
+
+#[tauri::command]
+fn change_admin_password(token: String, password: String, state: State<AuthState>) -> Result<(), String> {
+    require_session(&state, &token)?;
+    if password.trim().is_empty() {
+        return Err("password cannot be empty".into());
+    }
+    let mut stored = load_stored_config()?;
+    let mut salt = [0_u8; 32];
+    rand::thread_rng().fill_bytes(&mut salt);
+    stored.admin_salt = base64::engine::general_purpose::STANDARD.encode(salt);
+    stored.admin_hash = password_hash(&salt, &password);
+    save_stored_config(&stored)
 }
 
 /// The user's working folder: `files/` next to the executable. Scripts and tools
@@ -339,13 +485,30 @@ async fn run_ssh(
 
 fn main() {
     tauri::Builder::default()
+        .setup(|app| {
+            let factory_config = app
+                .path_resolver()
+                .resolve_resource("factory-config/command-runner.config.enc")
+                .ok_or_else(|| std::io::Error::other("factory encrypted configuration resource is missing"))?;
+            let factory_dir = factory_config
+                .parent()
+                .ok_or_else(|| std::io::Error::other("factory configuration resource is invalid"))?;
+            provision_factory_config(factory_dir).map_err(std::io::Error::other)?;
+            load_stored_config().map_err(std::io::Error::other)?;
+            Ok(())
+        })
+        .manage(AuthState(Mutex::new(HashSet::new())))
         .invoke_handler(tauri::generate_handler![
             run_powershell,
             run_ssh,
             get_files_dir,
             list_files,
             delete_file,
-            open_files_dir
+            open_files_dir,
+            load_config,
+            login_admin,
+            save_config,
+            change_admin_password
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

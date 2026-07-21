@@ -16,6 +16,9 @@ tauri = { version = "1.7", features = ["shell-open"] }
 tokio = { version = "1", features = ["process", "io-util", "rt", "macros", "time", "net"] }
 russh = "0.62"
 base64 = "0.22"
+aes-gcm = "0.10"
+rand = "0.8"
+sha2 = "0.10"
 
 [features]
 default = ["custom-protocol"]

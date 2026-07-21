@@ -608,7 +608,6 @@ class Component extends DCLogic {
     ],
     adapters: [],
     userAdapter: '',
-    adminPass: 'admin',
     newAdminPass: '',
     cc: { ip:'192.168.10.50', mask:'255.255.255.0', gateway:'192.168.10.1', dns:'8.8.8.8' },
     shortcuts: [
@@ -634,8 +633,7 @@ class Component extends DCLogic {
     logs: [],
   };
 
-  STORE_KEY = 'command-runner-v1';
-  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc', 'adminPass'];
+  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc'];
 
   _n = 100;
   _runSeq = 0;
@@ -652,15 +650,8 @@ class Component extends DCLogic {
     return t.invoke || (t.tauri && t.tauri.invoke) || null;
   }
 
-  componentDidMount() {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(this.STORE_KEY) || 'null'); } catch (e) {}
-    if (saved && typeof saved === 'object') {
-      const patch = {};
-      this.PERSISTED.forEach(k => { if (saved[k] !== undefined) patch[k] = saved[k]; });
-      if (patch.commands && patch.commands.length) patch.selectedId = patch.commands[0].id;
-      this.setState(patch);
-    }
+  async componentDidMount() {
+    await this._loadConfig();
 
     const t = this._tauri();
     if (t && t.event && t.event.listen) {
@@ -700,18 +691,41 @@ class Component extends DCLogic {
     }
   }
 
-  // ponytail: plaintext config on disk. SSH and admin passwords live here in the
-  // clear — same trust level as the machine itself. Move to the Windows Credential
-  // Manager if this ever holds credentials the local user shouldn't already have.
-  _save() {
+  async _loadConfig() {
+    const invoke = this._invoke();
+    if (!invoke) return;
     try {
+      const saved = await invoke('load_config');
+      if (saved && typeof saved === 'object') {
+        const patch = {};
+        this.PERSISTED.forEach(k => { if (saved[k] !== undefined) patch[k] = saved[k]; });
+        if (patch.commands && patch.commands.length) patch.selectedId = patch.commands[0].id;
+        this.setState(patch);
+      }
       const slice = {};
       this.PERSISTED.forEach(k => { slice[k] = this.state[k]; });
-      const json = JSON.stringify(slice);
-      if (json === this._savedSig) return;   // only touch localStorage on real change
-      this._savedSig = json;
-      localStorage.setItem(this.STORE_KEY, json);
-    } catch (e) {}
+      this._savedSig = JSON.stringify(slice);
+      this._configReady = true;
+    } catch (e) {
+      this.pushLog({ level:'error', task:'System', msg:`Could not load encrypted configuration: ${e.message || e}` });
+    }
+  }
+
+  async _save() {
+    if (!this._configReady || !this._sessionToken) return;
+    const invoke = this._invoke();
+    if (!invoke) return;
+    const slice = {};
+    this.PERSISTED.forEach(k => { slice[k] = this.state[k]; });
+    const json = JSON.stringify(slice);
+    if (json === this._savedSig) return;
+    this._savedSig = json;
+    try {
+      await invoke('save_config', { token:this._sessionToken, config:slice });
+    } catch (e) {
+      this._savedSig = null;
+      this.pushLog({ level:'error', task:'System', msg:`Could not save encrypted configuration: ${e.message || e}` });
+    }
   }
 
   _now() { return new Date().toLocaleTimeString('en-GB'); }
@@ -1078,13 +1092,24 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   }
   // ---------- login / nav ----------
   goConsole = () => this.setState({ screen:'main' });
-  goUser = () => this.setState({ screen:'user' });
+  goUser = () => this.state.adminAuthed
+    ? this.setState({ screen:'user' })
+    : this.setState({ screen:'config', loginError:'Administrator authentication is required to change settings.' });
   goConfig = () => this.setState({ screen:'config', loginError:'' });
-  submitLogin = () => {
-    if (this.state.loginPass === this.state.adminPass) this.setState({ adminAuthed:true, loginPass:'', loginError:'' });
-    else this.setState({ loginError:'Incorrect password. Access denied.' });
+  submitLogin = async () => {
+    const invoke = this._invoke();
+    if (!invoke) return this.setState({ loginError:'Configuration is available only in the packaged desktop application.' });
+    try {
+      this._sessionToken = await invoke('login_admin', { password:this.state.loginPass });
+      this.setState({ adminAuthed:true, loginPass:'', loginError:'' });
+    } catch (e) {
+      this.setState({ loginError: e.message || 'Incorrect password. Access denied.' });
+    }
   };
-  logout = () => this.setState({ adminAuthed:false, loginPass:'' });
+  logout = () => {
+    this._sessionToken = null;
+    this.setState({ adminAuthed:false, loginPass:'', screen:'main' });
+  };
 
   renderVals() {
     const s = this.state;
@@ -1160,15 +1185,18 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       // admin password (Configuration → Password tab)
       newAdminPass: s.newAdminPass,
       onNewAdminPass: (e) => this.setState({ newAdminPass: e.target.value }),
-      saveAdminPass: () => {
+      saveAdminPass: async () => {
         const p = s.newAdminPass.trim();
-        if (!p) return;
-        this.setState({ adminPass: p, newAdminPass: '' });
-        this.pushLog({ level:'info', task:'System', msg:'Administrator password updated.' });
+        if (!p || !this._sessionToken || !this._invoke()) return;
+        try {
+          await this._invoke()('change_admin_password', { token:this._sessionToken, password:p });
+          this.setState({ newAdminPass: '' });
+          this.pushLog({ level:'info', task:'System', msg:'Administrator password updated.' });
+        } catch (e) {
+          this.pushLog({ level:'error', task:'System', msg:`Could not update administrator password: ${e.message || e}` });
+        }
       },
-      adminPassHint: s.adminPass === 'admin'
-        ? 'Still on the default password "admin" — change it.'
-        : 'A custom password is set. It guards the Configuration screen only, not the machine.',
+      adminPassHint: 'Password changes are encrypted and saved in the application directory.',
 
       // status / run control
       statusDot: s.runState === 'running' ? 'var(--color-accent-500)' : s.runState === 'paused' ? 'var(--color-process-yellow)' : 'var(--color-neutral-400)',

@@ -5,9 +5,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(root, 'dist');
+const factoryDir = path.join(root, 'factory-config');
+const factoryKey = randomBytes(32);
+const adminSalt = randomBytes(32);
+const adminHash = createHash('sha256').update(adminSalt).update('admin').digest('base64');
+const factoryConfig = Buffer.from(JSON.stringify({
+  version: 1,
+  admin_salt: adminSalt.toString('base64'),
+  admin_hash: adminHash,
+  settings: {},
+}));
+const factoryNonce = randomBytes(12);
+const factoryCipher = createCipheriv('aes-256-gcm', factoryKey, factoryNonce);
+const factoryEncrypted = Buffer.concat([factoryCipher.update(factoryConfig), factoryCipher.final(), factoryCipher.getAuthTag()]);
+fs.rmSync(factoryDir, { recursive: true, force: true });
+fs.mkdirSync(factoryDir, { recursive: true });
+fs.writeFileSync(path.join(factoryDir, 'command-runner.config.enc'), Buffer.concat([factoryNonce, factoryEncrypted]));
+fs.writeFileSync(path.join(factoryDir, '.command-runner.key'), factoryKey);
 
 const src = fs.readFileSync(path.join(root, 'Command Runner.dc.html'), 'utf8');
 
