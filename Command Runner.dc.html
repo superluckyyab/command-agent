@@ -320,7 +320,7 @@
                           <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
                             <i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> File transfer target
                           </div>
-                          <div class="field"><label>File name (in the files folder)</label><input class="input" value="{{ sel.fileName }}" onInput="{{ onFileName }}"></div>
+                          <div class="field"><label>File (in the files folder)</label><select class="input" value="{{ sel.fileName }}" onChange="{{ onFileName }}"><option value="">Select a file…</option><sc-for list="{{ transferFiles }}" as="f" hint-placeholder-count="2"><option value="{{ f.name }}">{{ f.name }}</option></sc-for></select></div>
                           <div style="display:flex;gap:10px">
                             <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ sel.host }}" onInput="{{ onHost }}"></div>
                             <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ sel.port }}" onInput="{{ onPort }}"></div>
@@ -399,17 +399,15 @@
                     <sc-for list="{{ shortcutsEdit }}" as="se" hint-placeholder-count="1">
                       <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
                         <div style="display:flex;gap:10px;align-items:flex-end">
-                          <div class="field" style="width:180px">
-                            <label>Button label</label>
-                            <input class="input" value="{{ se.name }}" onInput="{{ se.onName }}">
-                          </div>
-                          <div class="field" style="flex:1">
-                            <label>PowerShell command</label>
-                            <input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px">
-                          </div>
-                          <button class="btn btn-secondary cr-free" onClick="{{ se.onTest }}" style="min-height:36px;padding:6px 12px;font-size:12px"><i class="ph-duotone ph-flask" style="font-size:15px"></i> Test</button>
+                          <div class="field" style="width:160px"><label>Button label</label><input class="input" value="{{ se.name }}" onInput="{{ se.onName }}"></div>
+                          <div class="field" style="width:140px"><label>Method</label><select class="input" value="{{ se.type }}" onChange="{{ se.onType }}"><option value="powershell">PowerShell</option><option value="ssh">SSH</option><option value="transfer">File Transfer</option></select></div>
+                          <button class="btn btn-secondary cr-free" onClick="{{ se.onTest }}" style="margin-left:auto;min-height:36px;padding:6px 12px;font-size:12px"><i class="ph-duotone ph-flask" style="font-size:15px"></i> Test</button>
                           <button onClick="{{ se.onDelete }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:6px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:17px"></i></button>
                         </div>
+                        <sc-if value="{{ se.isPowerShell }}" hint-placeholder-val="{{ true }}"><div class="field"><label>PowerShell command</label><input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px"></div></sc-if>
+                        <sc-if value="{{ se.isRemote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ se.host }}" onInput="{{ se.onHost }}"></div><div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ se.port }}" onInput="{{ se.onPort }}"></div><div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ se.username }}" onInput="{{ se.onUser }}"></div><div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ se.password }}" onInput="{{ se.onPass }}"></div></div></sc-if>
+                        <sc-if value="{{ se.isSsh }}" hint-placeholder-val="{{ false }}"><div class="field"><label>Remote command</label><input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px"></div></sc-if>
+                        <sc-if value="{{ se.isTransfer }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>File</label><select class="input" value="{{ se.fileName }}" onChange="{{ se.onFileName }}"><option value="">Select a file…</option><sc-for list="{{ transferFiles }}" as="f" hint-placeholder-count="2"><option value="{{ f.name }}">{{ f.name }}</option></sc-for></select></div><div class="field" style="flex:1"><label>Remote directory</label><input class="input" value="{{ se.remoteDir }}" onInput="{{ se.onRemoteDir }}"></div></div></sc-if>
                       </div>
                     </sc-for>
                   </div>
@@ -611,9 +609,9 @@ class Component extends DCLogic {
     newAdminPass: '',
     cc: { ip:'192.168.10.50', mask:'255.255.255.0', gateway:'192.168.10.1', dns:'8.8.8.8' },
     shortcuts: [
-      { id:'s1', name:'Get IP', script:'ipconfig' },
-      { id:'s2', name:'Adapters', script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize' },
-      { id:'s3', name:'Flush DNS', script:'Clear-DnsClientCache; Write-Host "DNS cache cleared"' },
+      { id:'s1', name:'Get IP', type:'powershell', script:'ipconfig', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
+      { id:'s2', name:'Adapters', type:'powershell', script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
+      { id:'s3', name:'Flush DNS', type:'powershell', script:'Clear-DnsClientCache; Write-Host "DNS cache cleared"', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
     ],
     scMenuOpen: false,
     testPanel: null,
@@ -666,6 +664,7 @@ class Component extends DCLogic {
       ? 'Command Runner ready — local execution backend connected.'
       : 'No execution backend: running in a browser. Commands will not execute — use the packaged desktop app.' });
     this.refreshAdapters(true);
+    this.loadFiles();
     this.checkAdmin();
   }
 
@@ -791,7 +790,7 @@ $pscpPath = Join-Path $Dir "..\\tools\\pscp.exe"
 $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 "yes" | & $pscp -pw ${this._psQuote(pass)} -P ${port} ${this._psQuote(`.\\${file}`)} ${this._psQuote(target)}`;
       const masked = `pscp -pw **** -P ${port} ".\\${file}" ${user}@${host}:${remote}`;
-      return { kind:'ps', script: real, _masked: masked };
+      return { kind:'ps', script: real, _masked: masked, stderrInfo:true };
     }
     return { kind:'ps', script: cmd.script };
   }
@@ -833,7 +832,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     let out;
     try {
       out = await this.exec(spec, (line, stream) =>
-        this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, msg: line }));
+        this.pushLog({ level: stream === 'err' && !spec.stderrInfo ? 'error' : 'info', task, msg: line }));
     } catch (e) {
       this.pushLog({ level:'error', task, msg:`✗ "${task}" failed: ${e.message || e}` });
       return null;
@@ -944,10 +943,11 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       this.setState(s => ({ scLines: s.scLines.concat({ time:this._now(), msg }) }));
       if (this._scEl) this._scEl.scrollTop = this._scEl.scrollHeight;
     };
-    this.setState({ scMenuOpen:false, screen:'main', scPanel:{ name:sc.name, script:sc.script }, scPanelTime:this._now(), scLines:[], scBusy:true });
-    append(`$ ${sc.script}`);
+    const spec = this._spec({ ...sc, type:sc.type || 'powershell' });
+    this.setState({ scMenuOpen:false, screen:'main', scPanel:sc, scPanelTime:this._now(), scLines:[], scBusy:true });
+    append(`$ ${spec._masked || spec.script}`);
     try {
-      const out = await this.exec({ kind:'ps', script: sc.script }, line => append(line));
+      const out = await this.exec(spec, line => append(line));
       append(`${out.exit === 0 ? '✓' : '✗'} done (exit ${out.exit})`);
     } catch (e) {
       append(`✗ ${e.message || e}`);
@@ -978,7 +978,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   setTestRef = el => { this._testEl = el; };
 
   addShortcut = () => {
-    this.setState(s => ({ shortcuts: s.shortcuts.concat({ id:'s'+(++this._n)+'-'+Date.now(), name:'New shortcut', script:'Get-Date' }) }));
+    this.setState(s => ({ shortcuts: s.shortcuts.concat({ id:'s'+(++this._n)+'-'+Date.now(), name:'New shortcut', type:'powershell', script:'Get-Date', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' }) }));
   };
   _updShortcut(id, patch) {
     this.setState(s => ({ shortcuts: s.shortcuts.map(x => x.id === id ? { ...x, ...patch } : x) }));
@@ -1236,7 +1236,8 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       submitLogin: this.submitLogin, logout: this.logout,
 
       // shortcuts
-      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.script, onRun: () => this.runShortcut(sc) })),
+      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.type === 'transfer' ? `${sc.fileName || 'Select file'} → ${sc.host || 'host'}` : sc.type === 'ssh' ? `${sc.username || 'user'}@${sc.host || 'host'}: ${sc.script}` : sc.script, onRun: () => this.runShortcut(sc) })),
+      transferFiles: s.files,
       scMenuOpen: s.scMenuOpen,
       scMenuCaret: s.scMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
       toggleScMenu: () => this.setState(st => ({ scMenuOpen: !st.scMenuOpen })),
@@ -1249,10 +1250,18 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       rerunShortcut: () => { if (s.scPanel && !s.scBusy) this.runShortcut(s.scPanel); },
       closeScPanel: () => this.setState({ scPanel:null, scLines:[] }),
       shortcutsEdit: s.shortcuts.map(sc => ({
-        name:sc.name, script:sc.script,
-        onTest: () => this.runTest(sc.name, { kind:'ps', script: sc.script }),
+        name:sc.name, type:sc.type || 'powershell', script:sc.script, host:sc.host || '', port:sc.port || '22', username:sc.username || '', password:sc.password || '', fileName:sc.fileName || '', remoteDir:sc.remoteDir || '',
+        isPowerShell: !sc.type || sc.type === 'powershell', isRemote: sc.type === 'ssh' || sc.type === 'transfer', isSsh: sc.type === 'ssh', isTransfer: sc.type === 'transfer',
+        onTest: () => this.runTest(sc.name, this._spec({ ...sc, type:sc.type || 'powershell' })),
         onName: (e) => this._updShortcut(sc.id, { name:e.target.value }),
+        onType: (e) => { this._updShortcut(sc.id, { type:e.target.value }); if (e.target.value === 'transfer') this.loadFiles(); },
         onScript: (e) => this._updShortcut(sc.id, { script:e.target.value }),
+        onHost: (e) => this._updShortcut(sc.id, { host:e.target.value }),
+        onPort: (e) => this._updShortcut(sc.id, { port:e.target.value }),
+        onUser: (e) => this._updShortcut(sc.id, { username:e.target.value }),
+        onPass: (e) => this._updShortcut(sc.id, { password:e.target.value }),
+        onFileName: (e) => this._updShortcut(sc.id, { fileName:e.target.value }),
+        onRemoteDir: (e) => this._updShortcut(sc.id, { remoteDir:e.target.value }),
         onDelete: () => this.setState(st => ({ shortcuts: st.shortcuts.filter(x => x.id !== sc.id) })),
       })),
       addShortcut: this.addShortcut,
