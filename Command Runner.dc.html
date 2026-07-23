@@ -390,40 +390,28 @@
                         <button class="btn btn-secondary cr-free" onClick="{{ testSelected }}"><i class="ph-duotone ph-flask" style="font-size:15px"></i> Test</button>
                       </div>
 
-                      <!-- Logic rules -->
+                      <!-- On-failure rule (at most one) -->
                       <div style="{{ rulesWrapStyle }}">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                          <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">Result logic (if / else)</span>
-                          <button class="btn btn-ghost" onClick="{{ addRule }}" style="font-size:12px"><i class="ph-duotone ph-plus" style="font-size:14px"></i> Add rule</button>
+                          <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">On failure</span>
+                          <sc-if value="{{ canAddRule }}" hint-placeholder-val="{{ true }}">
+                            <button class="btn btn-ghost" onClick="{{ addRule }}" style="font-size:12px"><i class="ph-duotone ph-plus" style="font-size:14px"></i> Add rule</button>
+                          </sc-if>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:10px">
                           <sc-for list="{{ rulesView }}" as="r" hint-placeholder-count="1">
-                            <div style="padding:10px 12px;background:var(--color-surface);border-radius:var(--radius-md);border-left:2px solid var(--color-accent);display:flex;flex-direction:column;gap:8px">
-                              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                                <span style="font-family:var(--font-heading);font-weight:600;font-size:13px;color:var(--color-accent-700)">IF</span>
-                                <span style="font-size:12px">result</span>
-                                <select class="input" value="{{ r.cond }}" onChange="{{ r.onCond }}" style="width:auto;min-height:30px;font-size:12px">
-                                  <option value="contains">contains</option>
-                                  <option value="equals">equals</option>
-                                  <option value="matches">matches (regex)</option>
-                                  <option value="exit0">exit code = 0</option>
-                                  <option value="exitNonZero">exit code ≠ 0</option>
-                                </select>
-                                <sc-if value="{{ r.needsValue }}" hint-placeholder-val="{{ true }}">
-                                  <input class="input" placeholder="text…" value="{{ r.value }}" onInput="{{ r.onValue }}" style="flex:1;min-width:90px;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
-                                </sc-if>
-                                <button onClick="{{ r.onDelete }}" style="margin-left:auto;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:2px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-x" style="font-size:15px"></i></button>
-                              </div>
-                              <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-family:var(--font-heading);font-weight:600;font-size:12px;color:var(--color-accent-700);width:38px">THEN</span>
-                                <input class="input" placeholder="command to run on match" value="{{ r.thenCmd }}" onInput="{{ r.onThen }}" style="flex:1;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
-                              </div>
-                              <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-family:var(--font-heading);font-weight:600;font-size:12px;color:var(--color-neutral-600);width:38px">ELSE</span>
-                                <input class="input" placeholder="command to run otherwise" value="{{ r.elseCmd }}" onInput="{{ r.onElse }}" style="flex:1;min-height:30px;font-size:12px;font-family:'SFMono-Regular',Consolas,monospace">
-                              </div>
+                            <div style="padding:10px 12px;background:var(--color-surface);border-radius:var(--radius-md);border-left:2px solid var(--color-accent);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                              <span style="font-size:12px">If this command fails:</span>
+                              <select class="input" value="{{ r.onFailure }}" onChange="{{ r.onChange }}" style="width:auto;flex:1;min-width:160px;min-height:30px;font-size:12px">
+                                <option value="stop">Stop the run</option>
+                                <option value="ask">Ask me — continue or stop</option>
+                              </select>
+                              <button onClick="{{ r.onDelete }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:2px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-x" style="font-size:15px"></i></button>
                             </div>
                           </sc-for>
+                          <sc-if value="{{ canAddRule }}" hint-placeholder-val="{{ true }}">
+                            <p class="text-muted" style="margin:0;font-size:12px">No rule — if this command fails, the scenario just moves on to the next one.</p>
+                          </sc-if>
                         </div>
                       </div>
 
@@ -601,6 +589,23 @@
       </div>
     </sc-if>
 
+    <!-- Failure prompt: shown when a command configured with "Ask" fails mid-run -->
+    <sc-if value="{{ failurePromptOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;background:color-mix(in srgb, var(--color-text) 38%, transparent);display:flex;align-items:center;justify-content:center">
+        <div style="width:380px;background:var(--color-bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <i class="ph-duotone ph-warning-circle" style="font-size:26px;color:var(--color-accent-2-600)"></i>
+            <h4 style="margin:0">"{{ failurePromptTask }}" failed</h4>
+          </div>
+          <p class="text-muted" style="margin:0;font-size:13px">This command is configured to ask before continuing. Run the rest of the scenario, or stop here?</p>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px">
+            <button class="btn btn-primary" onClick="{{ continueAfterFailure }}"><i class="ph-duotone ph-play" style="font-size:15px"></i> Continue</button>
+            <button class="btn btn-secondary" onClick="{{ stopAfterFailure }}" style="color:var(--color-accent-2-700)"><i class="ph-duotone ph-stop" style="font-size:15px"></i> Stop</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
   </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:924,&quot;height&quot;:644}}">
@@ -612,6 +617,7 @@ class Component extends DCLogic {
     runState: 'idle',
     editMode: false,
     stopConfirm: false,
+    failurePrompt: null,
     loginPass: '',
     loginError: '',
     search: '',
@@ -626,7 +632,7 @@ class Component extends DCLogic {
         { id:'c1', name:'Ping Gateway', type:'powershell',
           script:'Test-Connection -ComputerName 192.168.1.1 -Count 4',
           connectionId:'', fileName:'', remoteDir:'',
-          rules:[{ cond:'exit0', value:'', thenCmd:'Write-Host "Gateway reachable"', elseCmd:'Write-Host "Gateway UNREACHABLE"' }] },
+          rules:[] },
         { id:'c2', name:'Adapter Status', type:'powershell',
           script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize',
           connectionId:'', fileName:'', remoteDir:'',
@@ -877,24 +883,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     return { kind:'ps', script: cmd.script };
   }
 
-  _evalRule(r, out) {
-    switch (r.cond) {
-      case 'contains': return out.text.includes(r.value);
-      case 'equals': return out.text.trim() === (r.value || '').trim();
-      case 'matches': try { return new RegExp(r.value).test(out.text); } catch (e) { return false; }
-      case 'exit0': return out.exit === 0;
-      case 'exitNonZero': return out.exit !== 0;
-      default: return false;
-    }
-  }
-  _condText(r) {
-    if (r.cond === 'exit0') return 'exit code == 0';
-    if (r.cond === 'exitNonZero') return 'exit code != 0';
-    const verb = { contains:'contains', equals:'equals', matches:'matches' }[r.cond] || r.cond;
-    return `result ${verb} "${r.value}"`;
-  }
-
-  // Run one command: execute, stream its output, then apply its if/else rules.
+  // Run one command: execute, stream its output, then apply its on-failure rule (if any).
   async runCommand(cmd) {
     const task = cmd.name;
     const group = 'g' + (++this._logGroupSeq);
@@ -918,22 +907,8 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
         this.pushLog({ level: stream === 'err' && !spec.stderrInfo ? 'error' : 'info', task, group, msg: line }));
     } catch (e) {
       this.pushLog({ level:'error', task, group, msg:`✗ "${task}" failed: ${e.message || e}` });
+      await this._applyFailureRule(cmd, task, group);
       return null;
-    }
-
-    for (const r of (cmd.rules || [])) {
-      const matched = this._evalRule(r, out);
-      this.pushLog({ level: matched ? 'info' : 'warn', task, group, msg:`if (${this._condText(r)}) → ${matched ? 'TRUE' : 'FALSE'}` });
-      const branch = matched ? r.thenCmd : r.elseCmd;
-      if (!branch || !branch.trim()) continue;
-      this.pushLog({ level: matched ? 'info' : 'warn', task, group, msg:`  ${matched ? 'then' : 'else'} ⇒ ${branch}` });
-      try {
-        // The branch runs over the same transport as the command that triggered it.
-        await this.exec({ ...spec, script: branch }, (line, stream) =>
-          this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, group, msg: `  ${line}` }));
-      } catch (e) {
-        this.pushLog({ level:'error', task, group, msg:`  branch failed: ${e.message || e}` });
-      }
     }
 
     this.pushLog({
@@ -941,8 +916,30 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       task, group,
       msg: `${out.exit === 0 ? '✓' : '✗'} "${task}" completed (exit ${out.exit})`,
     });
+    if (out.exit !== 0) await this._applyFailureRule(cmd, task, group);
     return out;
   }
+
+  // A command may have at most one rule: what to do when it fails. With no
+  // rule, the scenario just moves on to the next command (prior default).
+  async _applyFailureRule(cmd, task, group) {
+    const mode = cmd.rules && cmd.rules[0] && cmd.rules[0].onFailure;
+    if (mode === 'ask') {
+      const choice = await new Promise(resolve => {
+        this._failureResolve = resolve;
+        this.setState({ failurePrompt: { task } });
+      });
+      this.pushLog({ level:'info', task, group, msg: choice === 'stop' ? '■ Stopped by user after failure.' : '► Continuing after failure (user choice).' });
+      if (choice === 'stop') this._abort = true;
+    } else if (mode === 'stop') {
+      this.pushLog({ level:'warn', task, group, msg:`■ Stopping the run — "${task}" is configured to stop on failure.` });
+      this._abort = true;
+    }
+  }
+  resolveFailurePrompt = (choice) => {
+    this.setState({ failurePrompt: null });
+    if (this._failureResolve) { this._failureResolve(choice); this._failureResolve = null; }
+  };
 
   // ---------- the run: every configured command, in order ----------
   _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1028,7 +1025,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   }
   addRule = () => {
     const id = this.state.selectedId;
-    this._updScenarioCommands(cmds => cmds.map(c => c.id === id ? { ...c, rules: c.rules.concat({ cond:'contains', value:'', thenCmd:'', elseCmd:'' }) } : c));
+    this._updScenarioCommands(cmds => cmds.map(c => (c.id === id && c.rules.length === 0) ? { ...c, rules: [{ onFailure:'stop' }] } : c));
   };
   deleteRule(id, i) {
     this._updScenarioCommands(cmds => cmds.map(c => c.id === id ? { ...c, rules: c.rules.filter((r, ri) => ri !== i) } : c));
@@ -1330,14 +1327,11 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 
     const sel = this._sel();
     const rulesView = sel ? sel.rules.map((r, i) => ({
-      cond:r.cond, value:r.value, thenCmd:r.thenCmd, elseCmd:r.elseCmd,
-      needsValue: !(r.cond === 'exit0' || r.cond === 'exitNonZero'),
-      onCond: (e) => this._updRule(sel.id, i, { cond:e.target.value }),
-      onValue: (e) => this._updRule(sel.id, i, { value:e.target.value }),
-      onThen: (e) => this._updRule(sel.id, i, { thenCmd:e.target.value }),
-      onElse: (e) => this._updRule(sel.id, i, { elseCmd:e.target.value }),
+      onFailure: r.onFailure || 'stop',
+      onChange: (e) => this._updRule(sel.id, i, { onFailure:e.target.value }),
       onDelete: () => this.deleteRule(sel.id, i),
     })) : [];
+    const canAddRule = !!sel && sel.rules.length === 0;
 
     const busy = s.runState !== 'idle';
 
@@ -1558,7 +1552,13 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       onFileName: (e) => this._update(sel.id, { fileName:e.target.value }),
       onRemoteDir: (e) => this._update(sel.id, { remoteDir:e.target.value }),
       onScript: (e) => this._update(sel.id, { script:e.target.value }),
-      addRule: this.addRule, rulesView,
+      addRule: this.addRule, rulesView, canAddRule,
+
+      // failure-prompt modal ("ask" on-failure mode pauses the run for this)
+      failurePromptOpen: !!s.failurePrompt,
+      failurePromptTask: s.failurePrompt ? s.failurePrompt.task : '',
+      continueAfterFailure: () => this.resolveFailurePrompt('continue'),
+      stopAfterFailure: () => this.resolveFailurePrompt('stop'),
 
       // import
       importOpen: s.importOpen,
