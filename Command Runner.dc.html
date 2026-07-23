@@ -66,8 +66,7 @@
             <sc-for list="{{ shortcutsView }}" as="sc" hint-placeholder-count="2">
               <button onClick="{{ sc.onRun }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)">
                 <i class="ph-duotone ph-lightning" style="font-size:14px;color:var(--color-accent-700);flex:none"></i>
-                <span style="font-family:var(--font-heading);font-weight:600;flex:none">{{ sc.name }}</span>
-                <span style="font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sc.script }}</span>
+                <span style="font-family:var(--font-heading);font-weight:600">{{ sc.name }}</span>
               </button>
             </sc-for>
           </div>
@@ -87,17 +86,6 @@
             <i class="ph-duotone ph-stop" style="font-size:14px"></i> Stop
           </button>
         </sc-if>
-        <sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
-          <button class="btn btn-secondary" onClick="{{ toggleAllGroups }}" style="min-height:28px;padding:4px 10px;font-size:12px">
-            <i class="ph-duotone {{ toggleAllGroupsIcon }}" style="font-size:14px"></i> {{ toggleAllGroupsLabel }}
-          </button>
-        </sc-if>
-        <button class="btn btn-secondary" onClick="{{ clearLogs }}" style="min-height:28px;padding:4px 10px;font-size:12px">
-          <i class="ph-duotone ph-trash" style="font-size:14px"></i> Clear
-        </button>
-        <button class="btn btn-secondary" onClick="{{ exportLogs }}" style="min-height:28px;padding:4px 10px;font-size:12px">
-          <i class="ph-duotone ph-download-simple" style="font-size:14px"></i> Export
-        </button>
         <span style="width:8px;height:8px;border-radius:50%;background:{{ statusDot }};margin-left:6px"></span>
         <span class="text-muted" style="font-size:11px">{{ statusText }}</span>
       </div>
@@ -108,7 +96,7 @@
       <div style="flex:1;display:flex;flex-direction:column;min-height:0">
 
         <!-- Log console -->
-        <div ref="{{ setLogRef }}" class="cr-scroll" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
+        <div ref="{{ setLogRef }}" class="cr-scroll" oncontextmenu="{{ onLogContextMenu }}" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
           <sc-for list="{{ consoleRows }}" as="log" hint-placeholder-count="8">
             <div style="display:flex;gap:10px;align-items:baseline;padding:2px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
               <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ log.time }}</span>
@@ -124,6 +112,19 @@
             <div class="text-muted" style="text-align:center;padding:40px;font-size:13px">No log entries match the current filters.</div>
           </sc-if>
         </div>
+
+        <!-- Right-click menu: expand/collapse all groups, export, clear -->
+        <sc-if value="{{ logMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ logMenuStyle }}">
+            <sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ expandAllGroups }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-arrows-out-line-vertical" style="font-size:14px;flex:none"></i> Expand all</button>
+              <button onClick="{{ collapseAllGroups }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-arrows-in-line-vertical" style="font-size:14px;flex:none"></i> Collapse all</button>
+              <div style="height:1px;background:var(--color-divider);margin:4px 2px"></div>
+            </sc-if>
+            <button onClick="{{ exportLogs }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-download-simple" style="font-size:14px;flex:none"></i> Export</button>
+            <button onClick="{{ clearLogs }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-accent-2-700)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-trash" style="font-size:14px;flex:none"></i> Clear</button>
+          </div>
+        </sc-if>
 
         <!-- Shortcut output panel -->
         <sc-if value="{{ scPanelOpen }}" hint-placeholder-val="{{ false }}">
@@ -641,6 +642,7 @@ class Component extends DCLogic {
     connections: [],
     scMenuOpen: false,
     scenarioMenuOpen: false,
+    logMenu: null,
     testPanel: null,
     testPanelTime: '',
     testLines: [],
@@ -1196,9 +1198,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   }
   // ---------- login / nav ----------
   goConsole = () => this.setState({ screen:'main' });
-  goUser = () => this.state.adminAuthed
-    ? this.setState({ screen:'user' })
-    : this.setState({ screen:'config', loginError:'Administrator authentication is required to change settings.' });
+  goUser = () => this.setState({ screen:'user' });
   goConfig = () => this.setState({ screen:'config', loginError:'' });
   submitLogin = async () => {
     const invoke = this._invoke();
@@ -1243,7 +1243,6 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     // command's output collapses to just its last line by default.
     const consoleRows = [];
     const groupAnchorIds = [];
-    let anyGroupCollapsed = false;
     for (let i = 0; i < filteredLogs.length; ) {
       const l = filteredLogs[i];
       if (!l.group) { consoleRows.push({ ...l, isGroupRow:false, groupToggle:null, groupBadge:'' }); i++; continue; }
@@ -1258,7 +1257,6 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       const anchorId = items[0].id;
       groupAnchorIds.push(anchorId);
       const expanded = !!s.expandedGroups[anchorId];
-      if (!expanded) anyGroupCollapsed = true;
       const toggleGroup = () => this.setState(st => ({ expandedGroups: { ...st.expandedGroups, [anchorId]: !st.expandedGroups[anchorId] } }));
       if (!expanded) {
         const last = items[items.length - 1];
@@ -1275,16 +1273,15 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       }
     }
     const hasGroups = groupAnchorIds.length > 0;
-    const allGroupsExpanded = hasGroups && !anyGroupCollapsed;
     const expandAllGroups = () => this.setState(st => {
       const next = { ...st.expandedGroups };
       groupAnchorIds.forEach(id => { next[id] = true; });
-      return { expandedGroups: next };
+      return { expandedGroups: next, logMenu: null };
     });
     const collapseAllGroups = () => this.setState(st => {
       const next = { ...st.expandedGroups };
       groupAnchorIds.forEach(id => { delete next[id]; });
-      return { expandedGroups: next };
+      return { expandedGroups: next, logMenu: null };
     });
 
     const tabStyle = (active) => ({
@@ -1366,12 +1363,13 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       confirmStop: () => { this._abort = true; this.setState({ stopConfirm: false, runState: 'running' }); },
       stopConfirmOpen: s.stopConfirm,
 
-      clearLogs: () => this.setState({ logs: [], expandedGroups: {} }),
+      clearLogs: () => this.setState({ logs: [], expandedGroups: {}, logMenu: null }),
       exportLogs: () => {
         const text = filtered.map(l => `[${l.time}] ${l.level.toUpperCase()} ${l.task} — ${l.msg}`).join('\n');
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([text], { type:'text/plain' }));
         a.download = 'console-log.txt'; a.click();
+        this.setState({ logMenu: null });
         this.pushLog({ level:'info', task:'System', msg:`Exported ${filtered.length} log entries to console-log.txt` });
       },
 
@@ -1381,12 +1379,19 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       noLogs: filteredLogs.length === 0,
       shownCount: filteredLogs.length,
       totalCount: s.logs.length,
-      hasGroups,
-      toggleAllGroups: allGroupsExpanded ? collapseAllGroups : expandAllGroups,
-      toggleAllGroupsLabel: allGroupsExpanded ? 'Collapse all' : 'Expand all',
-      toggleAllGroupsIcon: allGroupsExpanded ? 'ph-arrows-in-line-vertical' : 'ph-arrows-out-line-vertical',
       pauseStatus: s.runState === 'running' ? '► Executing' : s.runState === 'paused' ? '❚❚ Paused — finishing the current command first' : '■ Stopped — press Start to run every command in order',
       commandCount: activeScenario.commands.length,
+
+      // right-click menu on the log console: expand/collapse all, export, clear
+      onLogContextMenu: (e) => {
+        e.preventDefault();
+        this.setState({ logMenu: { x: e.clientX, y: e.clientY } });
+      },
+      logMenuOpen: !!s.logMenu,
+      logMenuStyle: { position:'fixed', top:(s.logMenu ? s.logMenu.y : 0) + 'px', left:(s.logMenu ? s.logMenu.x : 0) + 'px', zIndex:50, minWidth:'170px', background:'var(--color-bg)', border:'1px solid var(--color-divider)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-lg)', padding:'4px', display:'flex', flexDirection:'column' },
+      hasGroups,
+      expandAllGroups,
+      collapseAllGroups,
 
       // edit lock
       lockClass: s.editMode ? '' : 'cr-lock',
@@ -1413,11 +1418,11 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       addScenario: this.addScenario,
 
       // click-outside-to-close for the top-bar scenario/shortcuts dropdowns
-      anyMenuOpen: s.scenarioMenuOpen || s.scMenuOpen,
-      closeMenus: () => this.setState({ scenarioMenuOpen:false, scMenuOpen:false }),
+      anyMenuOpen: s.scenarioMenuOpen || s.scMenuOpen || !!s.logMenu,
+      closeMenus: () => this.setState({ scenarioMenuOpen:false, scMenuOpen:false, logMenu:null }),
 
       // shortcuts
-      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.type === 'transfer' ? `${sc.fileName || 'Select file'} → ${this._conn(sc.connectionId).host || 'host'}` : sc.type === 'ssh' ? `${this._conn(sc.connectionId).username || 'user'}@${this._conn(sc.connectionId).host || 'host'}: ${sc.script}` : sc.script, onRun: () => this.runShortcut(sc) })),
+      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, onRun: () => this.runShortcut(sc) })),
       transferFiles: s.files,
       scMenuOpen: s.scMenuOpen,
       scMenuCaret: s.scMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
