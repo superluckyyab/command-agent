@@ -37,6 +37,26 @@
         <i class="ph-duotone ph-lock-simple" style="font-size:13px;margin-left:2px"></i>
       </button>
       <div style="position:relative;margin-left:8px;display:flex;align-items:center">
+        <button onClick="{{ toggleScenarioMenu }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--font-heading);font-weight:600;font-size:12px;padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:var(--color-surface);color:var(--color-text);cursor:pointer" style-hover="background:var(--color-accent-100)">
+          <i class="ph-duotone ph-flow-arrow" style="font-size:13px;color:var(--color-accent-700)"></i> {{ activeScenarioName }}
+          <i class="ph-duotone {{ scenarioMenuCaret }}" style="font-size:12px"></i>
+        </button>
+        <sc-if value="{{ scenarioMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:200px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;display:flex;flex-direction:column">
+            <sc-for list="{{ scenarioOptions }}" as="opt" hint-placeholder-count="2">
+              <button onClick="{{ opt.onSelect }}" style="{{ opt.rowStyle }}" style-hover="background:var(--color-accent-100)">
+                <i class="ph-duotone ph-flow-arrow" style="font-size:14px;color:var(--color-accent-700);flex:none"></i>
+                <span style="font-family:var(--font-heading);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ opt.name }}</span>
+                <span style="font-size:11px;color:var(--color-neutral-600)">{{ opt.count }}</span>
+              </button>
+            </sc-for>
+            <button onClick="{{ addScenario }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-accent-700)" style-hover="background:var(--color-accent-100)">
+              <i class="ph-duotone ph-plus" style="font-size:14px;flex:none"></i> New scenario
+            </button>
+          </div>
+        </sc-if>
+      </div>
+      <div style="position:relative;margin-left:6px;display:flex;align-items:center">
         <button onClick="{{ toggleScMenu }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--font-heading);font-weight:600;font-size:12px;padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--color-accent-300);background:var(--color-accent-100);color:var(--color-accent-800);cursor:pointer" style-hover="background:var(--color-accent-200)">
           <i class="ph-duotone ph-lightning" style="font-size:13px"></i> Shortcuts
           <i class="ph-duotone {{ scMenuCaret }}" style="font-size:12px"></i>
@@ -84,12 +104,15 @@
 
         <!-- Log console -->
         <div ref="{{ setLogRef }}" class="cr-scroll" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
-          <sc-for list="{{ filteredLogs }}" as="log" hint-placeholder-count="8">
+          <sc-for list="{{ consoleRows }}" as="log" hint-placeholder-count="8">
             <div style="display:flex;gap:10px;align-items:baseline;padding:2px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
               <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ log.time }}</span>
               <span style="{{ log.badgeStyle }}">{{ log.level }}</span>
               <span style="color:var(--color-accent-700);flex:none;width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.task }}</span>
               <span style="flex:1;color:var(--color-text);white-space:pre-wrap;word-break:break-word">{{ log.msg }}</span>
+              <sc-if value="{{ log.isGroupRow }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ log.groupToggle }}" style="flex:none;border:none;background:var(--color-accent-100);color:var(--color-accent-800);cursor:pointer;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap" style-hover="background:var(--color-accent-200)">{{ log.groupBadge }}</button>
+              </sc-if>
             </div>
           </sc-for>
           <sc-if value="{{ noLogs }}" hint-placeholder-val="{{ false }}">
@@ -189,10 +212,10 @@
             <!-- sub tabs -->
             <div style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--color-divider);flex:none">
               <button class="cr-tab" onClick="{{ tabCommands }}" style="{{ subCommandsStyle }}"><i class="ph-duotone ph-list-checks" style="font-size:15px"></i> Commands</button>
+              <button class="cr-tab cr-free" onClick="{{ tabConnections }}" style="{{ subConnectionsStyle }}"><i class="ph-duotone ph-plug" style="font-size:15px"></i> Connections</button>
               <button class="cr-tab" onClick="{{ tabShortcuts }}" style="{{ subShortcutsStyle }}"><i class="ph-duotone ph-lightning" style="font-size:15px"></i> Shortcuts</button>
               <button class="cr-tab cr-free" onClick="{{ tabFiles }}" style="{{ subFilesStyle }}"><i class="ph-duotone ph-folder-open" style="font-size:15px"></i> Files</button>
               <button class="cr-tab cr-free" onClick="{{ tabPassword }}" style="{{ subPasswordStyle }}"><i class="ph-duotone ph-key" style="font-size:15px"></i> Password</button>
-              <button class="cr-tab cr-free" onClick="{{ tabManual }}" style="{{ subManualStyle }}"><i class="ph-duotone ph-book-open" style="font-size:15px"></i> Manual</button>
               <button class="btn btn-secondary cr-free" onClick="{{ toggleEdit }}" style="margin-left:auto;font-size:12px;min-height:28px;padding:4px 10px"><i class="ph-duotone {{ editIcon }}" style="font-size:14px"></i> {{ editLabel }}</button>
               <button class="btn btn-ghost cr-free" onClick="{{ logout }}" style="font-size:12px"><i class="ph-duotone ph-sign-out" style="font-size:15px"></i> Lock</button>
             </div>
@@ -202,6 +225,17 @@
               <div style="flex:1;display:flex;min-height:0">
                 <!-- list -->
                 <div style="width:210px;flex:none;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;min-height:0">
+                  <div style="padding:8px 8px 0;flex:none;display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-neutral-600)">
+                      <i class="ph-duotone ph-flow-arrow" style="font-size:13px"></i> Scenario
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px">
+                      <input class="input cr-free" value="{{ scenarioName }}" onInput="{{ onScenarioName }}" style="flex:1;min-height:30px;font-size:12px">
+                      <sc-if value="{{ canDeleteScenario }}" hint-placeholder-val="{{ false }}">
+                        <button class="cr-free" onClick="{{ deleteScenario }}" title="Delete scenario" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:4px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:15px"></i></button>
+                      </sc-if>
+                    </div>
+                  </div>
                   <div style="padding:8px;flex:none;display:flex;flex-direction:column;gap:6px">
                     <button class="btn btn-primary btn-block" onClick="{{ addCommand }}" style="margin-top:0"><i class="ph-duotone ph-plus" style="font-size:15px"></i> New command</button>
                     <button class="btn btn-secondary btn-block" onClick="{{ openImport }}" style="margin-top:0"><i class="ph-duotone ph-file-code" style="font-size:15px"></i> Import script</button>
@@ -266,16 +300,17 @@
                           <div style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">
                             <i class="ph-duotone ph-plug" style="font-size:14px"></i> Remote connection
                           </div>
-                          <div style="display:flex;gap:10px">
-                            <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ sel.host }}" onInput="{{ onHost }}"></div>
-                            <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ sel.port }}" onInput="{{ onPort }}"></div>
-                          </div>
-                          <div style="display:flex;gap:10px">
-                            <div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ sel.username }}" onInput="{{ onUser }}"></div>
-                            <div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ sel.password }}" onInput="{{ onPass }}"></div>
+                          <div class="field">
+                            <label>Connection</label>
+                            <select class="input" value="{{ sel.connectionId }}" onChange="{{ onConnectionId }}">
+                              <option value="">Select a connection…</option>
+                              <sc-for list="{{ connectionOptions }}" as="co" hint-placeholder-count="2">
+                                <option value="{{ co.id }}">{{ co.label }}</option>
+                              </sc-for>
+                            </select>
                           </div>
                           <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
-                            <i class="ph-duotone ph-key" style="font-size:14px"></i> Credentials are stored once and reused for every run — saved unencrypted on this machine.
+                            <i class="ph-duotone ph-key" style="font-size:14px"></i> Host / port / username / password are managed in Configuration → Connections.
                           </div>
                         </div>
                       </sc-if>
@@ -321,17 +356,18 @@
                             <i class="ph-duotone ph-upload-simple" style="font-size:14px"></i> File transfer target
                           </div>
                           <div class="field"><label>File (in the files folder)</label><select class="input" value="{{ sel.fileName }}" onChange="{{ onFileName }}"><option value="">Select a file…</option><sc-for list="{{ transferFiles }}" as="f" hint-placeholder-count="2"><option value="{{ f.name }}">{{ f.name }}</option></sc-for></select></div>
-                          <div style="display:flex;gap:10px">
-                            <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ sel.host }}" onInput="{{ onHost }}"></div>
-                            <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ sel.port }}" onInput="{{ onPort }}"></div>
-                          </div>
-                          <div style="display:flex;gap:10px">
-                            <div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ sel.username }}" onInput="{{ onUser }}"></div>
-                            <div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ sel.password }}" onInput="{{ onPass }}"></div>
+                          <div class="field">
+                            <label>Connection</label>
+                            <select class="input" value="{{ sel.connectionId }}" onChange="{{ onConnectionId }}">
+                              <option value="">Select a connection…</option>
+                              <sc-for list="{{ connectionOptions }}" as="co" hint-placeholder-count="2">
+                                <option value="{{ co.id }}">{{ co.label }}</option>
+                              </sc-for>
+                            </select>
                           </div>
                           <div class="field"><label>Remote directory</label><input class="input" value="{{ sel.remoteDir }}" onInput="{{ onRemoteDir }}" style="font-family:'SFMono-Regular',Consolas,monospace"></div>
                           <div class="text-muted" style="font-size:11px;display:flex;align-items:center;gap:6px">
-                            <i class="ph-duotone ph-info" style="font-size:14px"></i> Transfer uses the bundled <b>pscp.exe</b> in the <code>tools</code> folder (falls back to PATH). Password is passed on the command line.
+                            <i class="ph-duotone ph-info" style="font-size:14px"></i> Host / port / username / password are managed in Configuration → Connections. Transfer uses the bundled <b>pscp.exe</b> in the <code>tools</code> folder (falls back to PATH).
                           </div>
                         </div>
                       </sc-if>
@@ -387,6 +423,40 @@
               </div>
             </sc-if>
 
+            <!-- CONNECTIONS TAB -->
+            <sc-if value="{{ tabIsConnections }}" hint-placeholder-val="{{ false }}">
+              <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px">
+                <div style="display:flex;flex-direction:column;gap:12px;max-width:640px">
+                  <div>
+                    <h4 style="margin:0 0 4px">Connections</h4>
+                    <p class="text-muted" style="margin:0;font-size:12px">Host, port, username and password are configured once here. SSH and File Transfer commands — and their Shortcuts — just pick a connection.</p>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <sc-for list="{{ connectionsEdit }}" as="co" hint-placeholder-count="1">
+                      <div style="padding:12px;background:var(--color-surface);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px">
+                        <div style="display:flex;gap:10px;align-items:flex-end">
+                          <div class="field" style="flex:1"><label>Connection name</label><input class="input" value="{{ co.name }}" onInput="{{ co.onName }}"></div>
+                          <button onClick="{{ co.onDelete }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:6px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:17px"></i></button>
+                        </div>
+                        <div style="display:flex;gap:10px">
+                          <div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ co.host }}" onInput="{{ co.onHost }}"></div>
+                          <div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ co.port }}" onInput="{{ co.onPort }}"></div>
+                        </div>
+                        <div style="display:flex;gap:10px">
+                          <div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ co.username }}" onInput="{{ co.onUser }}"></div>
+                          <div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ co.password }}" onInput="{{ co.onPass }}"></div>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ noConnections }}" hint-placeholder-val="{{ false }}">
+                      <div class="text-muted" style="font-size:12px;padding:8px 0">No connections yet. Add one below, then pick it from any SSH or File Transfer command.</div>
+                    </sc-if>
+                  </div>
+                  <button class="btn btn-secondary btn-block" onClick="{{ addConnection }}"><i class="ph-duotone ph-plus" style="font-size:15px"></i> New connection</button>
+                </div>
+              </div>
+            </sc-if>
+
             <!-- SHORTCUTS TAB -->
             <sc-if value="{{ tabIsShortcuts }}" hint-placeholder-val="{{ false }}">
               <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px">
@@ -405,7 +475,7 @@
                           <button onClick="{{ se.onDelete }}" style="border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:6px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:17px"></i></button>
                         </div>
                         <sc-if value="{{ se.isPowerShell }}" hint-placeholder-val="{{ true }}"><div class="field"><label>PowerShell command</label><input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px"></div></sc-if>
-                        <sc-if value="{{ se.isRemote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Host / IP</label><input class="input" value="{{ se.host }}" onInput="{{ se.onHost }}"></div><div class="field" style="width:74px"><label>Port</label><input class="input" value="{{ se.port }}" onInput="{{ se.onPort }}"></div><div class="field" style="flex:1"><label>Username</label><input class="input" value="{{ se.username }}" onInput="{{ se.onUser }}"></div><div class="field" style="flex:1"><label>Password</label><input class="input" type="password" value="{{ se.password }}" onInput="{{ se.onPass }}"></div></div></sc-if>
+                        <sc-if value="{{ se.isRemote }}" hint-placeholder-val="{{ false }}"><div class="field"><label>Connection</label><select class="input" value="{{ se.connectionId }}" onChange="{{ se.onConnectionId }}"><option value="">Select a connection…</option><sc-for list="{{ connectionOptions }}" as="co" hint-placeholder-count="2"><option value="{{ co.id }}">{{ co.label }}</option></sc-for></select></div></sc-if>
                         <sc-if value="{{ se.isSsh }}" hint-placeholder-val="{{ false }}"><div class="field"><label>Remote command</label><input class="input" value="{{ se.script }}" onInput="{{ se.onScript }}" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:13px"></div></sc-if>
                         <sc-if value="{{ se.isTransfer }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>File</label><select class="input" value="{{ se.fileName }}" onChange="{{ se.onFileName }}"><option value="">Select a file…</option><sc-for list="{{ transferFiles }}" as="f" hint-placeholder-count="2"><option value="{{ f.name }}">{{ f.name }}</option></sc-for></select></div><div class="field" style="flex:1"><label>Remote directory</label><input class="input" value="{{ se.remoteDir }}" onInput="{{ se.onRemoteDir }}"></div></div></sc-if>
                       </div>
@@ -446,7 +516,7 @@
                 <div style="display:flex;flex-direction:column;gap:14px;max-width:720px">
                   <div>
                     <h4 style="margin:0 0 4px">Files</h4>
-                    <p class="text-muted" style="margin:0;font-size:12px">Drop scripts and tools in this folder. PowerShell runs with this folder as its working directory, on PATH, and as <b>$Dir</b> — so files here can be called directly. See the Manual tab.</p>
+                    <p class="text-muted" style="margin:0;font-size:12px">Drop scripts and tools in this folder. PowerShell runs with this folder as its working directory, on PATH, and as <b>$Dir</b> — so files here can be called directly.</p>
                   </div>
 
                   <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px">
@@ -474,62 +544,6 @@
                         No files yet. Click <b>Open folder</b>, drop files in, then <b>Refresh</b>.
                       </div>
                     </sc-if>
-                  </div>
-                </div>
-              </div>
-            </sc-if>
-
-            <!-- MANUAL TAB -->
-            <sc-if value="{{ tabIsManual }}" hint-placeholder-val="{{ false }}">
-              <div class="cr-scroll" style="flex:1;overflow-y:auto;padding:16px 20px">
-                <div style="display:flex;flex-direction:column;gap:16px;max-width:760px;font-size:13px;line-height:1.7;color:var(--color-text)">
-                  <div>
-                    <h4 style="margin:0 0 4px">使用手册 — 文件目录与远程传输</h4>
-                    <p class="text-muted" style="margin:0;font-size:12px">Files 目录让你把脚本和工具放在一起，用 PowerShell 直接调用；远程传输已作为 File Transfer 命令类型集成到 Commands 中。</p>
-                  </div>
-
-                  <div>
-                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">1. 目录在哪里 · 怎么放文件</div>
-                    <ul style="margin:0;padding-left:20px">
-                      <li>目录是程序 exe 同级的 <b>files</b> 文件夹（首次运行自动创建）。在 <b>Files</b> 页顶部能看到完整路径。</li>
-                      <li>点 <b>Open folder</b> 打开该文件夹，把 <code>.ps1</code> / <code>.bat</code> / <code>.exe</code> / 数据文件拖进去，再点 <b>Refresh</b> 刷新列表。</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">2. PowerShell 怎么调用目录里的文件</div>
-                    <p style="margin:0 0 6px">每次执行命令时，程序会自动：把工作目录切到该文件夹、把它加进 <code>PATH</code>、并设置变量 <b>$Dir</b> 指向它。所以在任意命令 / 脚本 / Shortcut 里都可以这样调用：</p>
-                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">.\deploy.ps1                 # 运行目录里的脚本
-& "$Dir\tool.exe" --version   # 用绝对路径运行工具
-Get-Content .\config.txt      # 读取目录里的数据文件
-mytool.exe                    # 目录已在 PATH，exe 可直接按名调用</div>
-                  </div>
-
-                  <div>
-                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">3. 怎么运行一个文件</div>
-                    <ul style="margin:0;padding-left:20px">
-                      <li>在 <b>Files</b> 列表里点该文件的 <b>Run</b>，输出会打印到 Console。</li>
-                      <li>或在命令里写 <code>&amp; ".\文件名"</code>（例如 <code>&amp; ".\backup.ps1"</code>）。</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div style="font-family:var(--font-heading);font-weight:600;margin-bottom:4px">4. SSH 远端命令 / 文件传输（plink &amp; pscp）</div>
-                    <ul style="margin:0;padding-left:20px">
-                      <li>程序自带 <code>tools/plink.exe</code> 和 <code>tools/pscp.exe</code>，并把 <code>tools</code> 目录加进 PATH。</li>
-                      <li>添加 <b>SSH</b> 类型命令时，程序用 <code>plink -ssh user@host -P port -pw pass -batch "命令"</code> 登录执行。</li>
-                      <li>添加 <b>File Transfer</b> 类型命令时，程序用 <code>pscp -pw pass -P port ".\文件" user@host:"/远端目录/"</code> 上传。</li>
-                      <li>首次连接新主机时，程序会先 pipe 一个 <code>yes</code> 来自动接受主机密钥；失败可手动在 Console 执行一次确认。</li>
-                      <li>如果 bundled 工具被删除，会回退到系统 PATH 中的 <code>plink</code> / <code>pscp</code>。</li>
-                    </ul>
-                    <p style="margin:6px 0 4px">等价的手动命令（可直接在 PowerShell 里执行）：</p>
-                    <div style="padding:10px 12px;background:var(--color-neutral-900);color:var(--color-neutral-100);border-radius:var(--radius-md);font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">& "$Dir\..\tools\plink.exe" -ssh user@10.0.0.9 -P 22 -pw "密码" -batch "ls -la"
-& "$Dir\..\tools\pscp.exe" -pw "密码" -P 22 ".\app.jar" user@10.0.0.9:"/opt/app/"</div>
-                  </div>
-
-                  <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-accent-2-100);border:1px solid var(--color-accent-2-300);font-size:12px;color:var(--color-accent-2-800)">
-                    <i class="ph-duotone ph-warning-circle" style="font-size:16px;flex:none"></i>
-                    <div>注意：Computer Control（改 IP / DNS）、重启网卡等操作需要<b>以管理员身份运行</b>本程序；plink / pscp 的密码会出现在命令行参数中（进程列表可见），仅在可信机器上使用。</div>
                   </div>
                 </div>
               </div>
@@ -594,26 +608,33 @@ class Component extends DCLogic {
     level: 'all',
     taskFilter: 'all',
     selectedId: 'c1',
-    commands: [
-      { id:'c1', name:'Ping Gateway', type:'powershell',
-        script:'Test-Connection -ComputerName 192.168.1.1 -Count 4',
-        host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'',
-        rules:[{ cond:'exit0', value:'', thenCmd:'Write-Host "Gateway reachable"', elseCmd:'Write-Host "Gateway UNREACHABLE"' }] },
-      { id:'c2', name:'Adapter Status', type:'powershell',
-        script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize',
-        host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'',
-        rules:[] },
+    // A scenario is a named, ordered list of Commands run top-to-bottom by Start.
+    // Shortcuts (below) run a single command on demand instead.
+    activeScenarioId: 'sc1',
+    scenarios: [
+      { id:'sc1', name:'Default scenario', commands: [
+        { id:'c1', name:'Ping Gateway', type:'powershell',
+          script:'Test-Connection -ComputerName 192.168.1.1 -Count 4',
+          connectionId:'', fileName:'', remoteDir:'',
+          rules:[{ cond:'exit0', value:'', thenCmd:'Write-Host "Gateway reachable"', elseCmd:'Write-Host "Gateway UNREACHABLE"' }] },
+        { id:'c2', name:'Adapter Status', type:'powershell',
+          script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize',
+          connectionId:'', fileName:'', remoteDir:'',
+          rules:[] },
+      ] },
     ],
     adapters: [],
     userAdapter: '',
     newAdminPass: '',
     cc: { ip:'192.168.10.50', mask:'255.255.255.0', gateway:'192.168.10.1', dns:'8.8.8.8' },
     shortcuts: [
-      { id:'s1', name:'Get IP', type:'powershell', script:'ipconfig', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
-      { id:'s2', name:'Adapters', type:'powershell', script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
-      { id:'s3', name:'Flush DNS', type:'powershell', script:'Clear-DnsClientCache; Write-Host "DNS cache cleared"', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' },
+      { id:'s1', name:'Get IP', type:'powershell', script:'ipconfig', connectionId:'', fileName:'', remoteDir:'' },
+      { id:'s2', name:'Adapters', type:'powershell', script:'Get-NetAdapter | Format-Table Name, Status, LinkSpeed -AutoSize', connectionId:'', fileName:'', remoteDir:'' },
+      { id:'s3', name:'Flush DNS', type:'powershell', script:'Clear-DnsClientCache; Write-Host "DNS cache cleared"', connectionId:'', fileName:'', remoteDir:'' },
     ],
+    connections: [],
     scMenuOpen: false,
+    scenarioMenuOpen: false,
     testPanel: null,
     testPanelTime: '',
     testLines: [],
@@ -629,12 +650,14 @@ class Component extends DCLogic {
     filesDir: '',
     files: [],
     logs: [],
+    expandedGroups: {},
   };
 
-  PERSISTED = ['commands', 'shortcuts', 'userAdapter', 'cc'];
+  PERSISTED = ['scenarios', 'activeScenarioId', 'shortcuts', 'connections', 'userAdapter', 'cc'];
 
   _n = 100;
   _runSeq = 0;
+  _logGroupSeq = 0;
   _sinks = {};   // runId -> line callback, for streamed output
   _abort = false;
 
@@ -698,7 +721,39 @@ class Component extends DCLogic {
       if (saved && typeof saved === 'object') {
         const patch = {};
         this.PERSISTED.forEach(k => { if (saved[k] !== undefined) patch[k] = saved[k]; });
-        if (patch.commands && patch.commands.length) patch.selectedId = patch.commands[0].id;
+
+        // Migrate configs saved before Connections/Scenarios existed: SSH and File
+        // Transfer commands/shortcuts used to carry their own host/port/username/
+        // password. Fold those into shared Connection profiles (deduped by value)
+        // and point the command/shortcut at one by id instead, so upgrading never
+        // silently drops a user's saved credentials.
+        const legacyConns = new Map();
+        const newConns = [];
+        const withConnection = (obj) => {
+          if (!obj || (obj.type !== 'ssh' && obj.type !== 'transfer') || obj.connectionId !== undefined) return obj;
+          const host = obj.host || '', port = obj.port || '22', username = obj.username || '', password = obj.password || '';
+          if (!host && !username) return { ...obj, connectionId:'' };
+          const key = `${host}|${port}|${username}|${password}`;
+          let id = legacyConns.get(key);
+          if (!id) {
+            id = 'conn' + (++this._n) + '-' + Date.now();
+            legacyConns.set(key, id);
+            newConns.push({ id, name:`${username || 'user'}@${host || 'host'}`, host, port, username, password });
+          }
+          return { ...obj, connectionId:id };
+        };
+        if (!patch.scenarios && Array.isArray(saved.commands)) {
+          patch.scenarios = [{ id:'sc1', name:'Default scenario', commands: saved.commands.map(withConnection) }];
+          patch.activeScenarioId = 'sc1';
+        }
+        if (Array.isArray(patch.shortcuts)) patch.shortcuts = patch.shortcuts.map(withConnection);
+        if (newConns.length) patch.connections = (patch.connections || []).concat(newConns);
+
+        if (patch.scenarios && patch.scenarios.length) {
+          if (!patch.scenarios.some(sc => sc.id === patch.activeScenarioId)) patch.activeScenarioId = patch.scenarios[0].id;
+          const active = patch.scenarios.find(sc => sc.id === patch.activeScenarioId);
+          patch.selectedId = active && active.commands[0] ? active.commands[0].id : null;
+        }
         this.setState(patch);
       }
       const slice = {};
@@ -728,7 +783,7 @@ class Component extends DCLogic {
   }
 
   _now() { return new Date().toLocaleTimeString('en-GB'); }
-  _mk(e) { return { id: ++this._n, time: this._now(), level: e.level, task: e.task, msg: e.msg }; }
+  _mk(e) { return { id: ++this._n, time: this._now(), level: e.level, task: e.task, msg: e.msg, group: e.group || null }; }
   _psQuote(s) { return `'${(s || '').replace(/'/g, "''")}'`; }
   pushLog(e) {
     this.setState(s => {
@@ -768,22 +823,24 @@ class Component extends DCLogic {
 
   _spec(cmd) {
     if (cmd.type === 'ssh') {
-      const host = (cmd.host || '').trim();
-      const port = String(cmd.port || '22').trim();
-      const user = (cmd.username || '').trim();
-      const pass = cmd.password || '';
+      const conn = this._conn(cmd.connectionId);
+      const host = (conn.host || '').trim();
+      const port = String(conn.port || '22').trim();
+      const user = (conn.username || '').trim();
+      const pass = conn.password || '';
       const script = (cmd.script || '').trim();
       return { kind:'ssh', host, port, username:user, password:pass, script, _masked:`ssh ${user}@${host}:${port} <remote command>` };
     }
     if (cmd.type === 'control') return { kind:'ps', script: this._ccScript() };
     if (cmd.type === 'transfer') {
+      const conn = this._conn(cmd.connectionId);
       let remote = (cmd.remoteDir || '').trim() || '.';
       if (!/[\/\\]$/.test(remote)) remote += '/';
-      const port = String(cmd.port || '22').trim();
+      const port = String(conn.port || '22').trim();
       const file = (cmd.fileName || '').trim() || 'file';
-      const user = (cmd.username || '').trim();
-      const pass = cmd.password || '';
-      const host = (cmd.host || '').trim();
+      const user = (conn.username || '').trim();
+      const pass = conn.password || '';
+      const host = (conn.host || '').trim();
       const target = `${user}@${host}:${remote}`;
       const real = `$env:Path = (Join-Path $Dir "..\\tools\\") + ";" + $env:Path
 $pscpPath = Join-Path $Dir "..\\tools\\pscp.exe"
@@ -815,47 +872,48 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   // Run one command: execute, stream its output, then apply its if/else rules.
   async runCommand(cmd) {
     const task = cmd.name;
+    const group = 'g' + (++this._logGroupSeq);
     const spec = this._spec(cmd);
     const kindLabel = cmd.type === 'ssh' ? 'SSH' : cmd.type === 'control' ? 'Computer Control' : cmd.type === 'transfer' ? 'File Transfer' : 'PowerShell';
-    this.pushLog({ level:'info', task, msg:`▶ Starting "${task}" (${kindLabel})` });
+    this.pushLog({ level:'info', task, group, msg:`▶ Starting "${task}" (${kindLabel})` });
     if (cmd.type === 'ssh') {
-      this.pushLog({ level:'info', task, msg:`Connecting ${cmd.username}@${cmd.host}:${cmd.port} …` });
+      this.pushLog({ level:'info', task, group, msg:`Connecting ${spec.username}@${spec.host}:${spec.port} …` });
     }
     if (spec._masked) {
-      this.pushLog({ level:'info', task, msg:`$ ${spec._masked}` });
+      this.pushLog({ level:'info', task, group, msg:`$ ${spec._masked}` });
     } else {
       (spec.script || '').split('\n').filter(l => l.trim()).forEach(l => {
-        this.pushLog({ level:'info', task, msg:`$ ${l.trim()}` });
+        this.pushLog({ level:'info', task, group, msg:`$ ${l.trim()}` });
       });
     }
 
     let out;
     try {
       out = await this.exec(spec, (line, stream) =>
-        this.pushLog({ level: stream === 'err' && !spec.stderrInfo ? 'error' : 'info', task, msg: line }));
+        this.pushLog({ level: stream === 'err' && !spec.stderrInfo ? 'error' : 'info', task, group, msg: line }));
     } catch (e) {
-      this.pushLog({ level:'error', task, msg:`✗ "${task}" failed: ${e.message || e}` });
+      this.pushLog({ level:'error', task, group, msg:`✗ "${task}" failed: ${e.message || e}` });
       return null;
     }
 
     for (const r of (cmd.rules || [])) {
       const matched = this._evalRule(r, out);
-      this.pushLog({ level: matched ? 'info' : 'warn', task, msg:`if (${this._condText(r)}) → ${matched ? 'TRUE' : 'FALSE'}` });
+      this.pushLog({ level: matched ? 'info' : 'warn', task, group, msg:`if (${this._condText(r)}) → ${matched ? 'TRUE' : 'FALSE'}` });
       const branch = matched ? r.thenCmd : r.elseCmd;
       if (!branch || !branch.trim()) continue;
-      this.pushLog({ level: matched ? 'info' : 'warn', task, msg:`  ${matched ? 'then' : 'else'} ⇒ ${branch}` });
+      this.pushLog({ level: matched ? 'info' : 'warn', task, group, msg:`  ${matched ? 'then' : 'else'} ⇒ ${branch}` });
       try {
         // The branch runs over the same transport as the command that triggered it.
         await this.exec({ ...spec, script: branch }, (line, stream) =>
-          this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, msg: `  ${line}` }));
+          this.pushLog({ level: stream === 'err' ? 'error' : 'info', task, group, msg: `  ${line}` }));
       } catch (e) {
-        this.pushLog({ level:'error', task, msg:`  branch failed: ${e.message || e}` });
+        this.pushLog({ level:'error', task, group, msg:`  branch failed: ${e.message || e}` });
       }
     }
 
     this.pushLog({
       level: out.exit === 0 ? 'info' : 'warn',
-      task,
+      task, group,
       msg: `${out.exit === 0 ? '✓' : '✗'} "${task}" completed (exit ${out.exit})`,
     });
     return out;
@@ -869,9 +927,9 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 
   startRun = async () => {
     if (this.state.runState !== 'idle') return;
-    const cmds = this.state.commands;
+    const cmds = this._activeScenario().commands;
     this._abort = false;
-    this.setState({ logs: [], runState:'running', screen:'main' });
+    this.setState({ logs: [], expandedGroups: {}, runState:'running', screen:'main' });
     this.pushLog({ level:'info', task:'System', msg:`▶ Run started — ${cmds.length} command(s) queued.` });
 
     for (const cmd of cmds) {
@@ -890,35 +948,80 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     this.setState({ runState:'idle' });
   };
 
-  // ---------- command CRUD ----------
-  _update(id, patch) {
-    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, ...patch } : c) }));
+  // ---------- scenarios (a scenario is an ordered list of Commands run by Start) ----------
+  _scenario(id) { return this.state.scenarios.find(sc => sc.id === id); }
+  _activeScenario() { return this._scenario(this.state.activeScenarioId) || this.state.scenarios[0]; }
+  _updScenarioCommands(fn) {
+    this.setState(s => ({ scenarios: s.scenarios.map(sc => sc.id === s.activeScenarioId ? { ...sc, commands: fn(sc.commands) } : sc) }));
   }
-  _sel() { return this.state.commands.find(c => c.id === this.state.selectedId); }
+  addScenario = () => {
+    const id = 'sc' + (++this._n) + '-' + Date.now();
+    this.setState(s => ({
+      scenarios: s.scenarios.concat({ id, name:'New scenario', commands: [] }),
+      activeScenarioId: id, selectedId: null, scenarioMenuOpen: false, tab: 'commands',
+    }));
+  };
+  renameScenario(id, name) {
+    this.setState(s => ({ scenarios: s.scenarios.map(sc => sc.id === id ? { ...sc, name } : sc) }));
+  }
+  deleteScenario(id) {
+    const s = this.state;
+    if (s.scenarios.length <= 1) return;   // always keep at least one scenario
+    const scenarios = s.scenarios.filter(sc => sc.id !== id);
+    const activeScenarioId = s.activeScenarioId === id ? scenarios[0].id : s.activeScenarioId;
+    const active = scenarios.find(sc => sc.id === activeScenarioId);
+    const selectedId = activeScenarioId !== s.activeScenarioId ? (active.commands[0] ? active.commands[0].id : null) : s.selectedId;
+    this.setState({ scenarios, activeScenarioId, selectedId });
+  }
+  selectScenario = (id) => {
+    const sc = this._scenario(id);
+    this.setState({ activeScenarioId: id, selectedId: sc && sc.commands[0] ? sc.commands[0].id : null, scenarioMenuOpen: false });
+  };
+
+  // ---------- command CRUD (operate on the active scenario's command list) ----------
+  _update(id, patch) {
+    this._updScenarioCommands(cmds => cmds.map(c => c.id === id ? { ...c, ...patch } : c));
+  }
+  _sel() { const sc = this._activeScenario(); return sc && sc.commands.find(c => c.id === this.state.selectedId); }
   addCommand = () => {
     const id = 'c' + (++this._n) + '-' + Date.now();
-    const cmd = { id, name:'New command', type:'powershell', script:'Write-Host "Hello"', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'/root/', rules:[] };
-    this.setState(s => ({ commands: s.commands.concat(cmd), selectedId: id, tab:'commands', importOpen:false }));
+    const cmd = { id, name:'New command', type:'powershell', script:'Write-Host "Hello"', connectionId:'', fileName:'', remoteDir:'/root/', rules:[] };
+    this._updScenarioCommands(cmds => cmds.concat(cmd));
+    this.setState({ selectedId: id, tab:'commands', importOpen:false });
   };
   deleteCommand(id) {
-    this.setState(s => {
-      const commands = s.commands.filter(c => c.id !== id);
-      const selectedId = s.selectedId === id ? (commands[0] ? commands[0].id : null) : s.selectedId;
-      return { commands, selectedId };
-    });
+    const active = this._activeScenario();
+    const commands = active.commands.filter(c => c.id !== id);
+    this._updScenarioCommands(() => commands);
+    if (this.state.selectedId === id) this.setState({ selectedId: commands[0] ? commands[0].id : null });
   }
   _updRule(id, i, patch) {
-    this.setState(s => ({ commands: s.commands.map(c => {
+    this._updScenarioCommands(cmds => cmds.map(c => {
       if (c.id !== id) return c;
       return { ...c, rules: c.rules.map((r, ri) => ri === i ? { ...r, ...patch } : r) };
-    }) }));
+    }));
   }
   addRule = () => {
     const id = this.state.selectedId;
-    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, rules: c.rules.concat({ cond:'contains', value:'', thenCmd:'', elseCmd:'' }) } : c) }));
+    this._updScenarioCommands(cmds => cmds.map(c => c.id === id ? { ...c, rules: c.rules.concat({ cond:'contains', value:'', thenCmd:'', elseCmd:'' }) } : c));
   };
   deleteRule(id, i) {
-    this.setState(s => ({ commands: s.commands.map(c => c.id === id ? { ...c, rules: c.rules.filter((r, ri) => ri !== i) } : c) }));
+    this._updScenarioCommands(cmds => cmds.map(c => c.id === id ? { ...c, rules: c.rules.filter((r, ri) => ri !== i) } : c));
+  }
+
+  // ---------- connections (shared host/port/username/password for SSH & File Transfer) ----------
+  _conn(id) {
+    return this.state.connections.find(c => c.id === id) || { host:'', port:'22', username:'', password:'' };
+  }
+  addConnection = () => {
+    const id = 'conn' + (++this._n) + '-' + Date.now();
+    this.setState(s => ({ connections: s.connections.concat({ id, name:'New connection', host:'', port:'22', username:'', password:'' }), tab:'connections' }));
+  };
+  _updConnection(id, patch) {
+    this.setState(s => ({ connections: s.connections.map(c => c.id === id ? { ...c, ...patch } : c) }));
+  }
+  deleteConnection(id) {
+    this.setState(s => ({ connections: s.connections.filter(c => c.id !== id) }));
   }
 
   // ---------- script import ----------
@@ -929,8 +1032,9 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     const statements = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).length;
     const name = s.importName || 'Imported script';
     const id = 'c' + (++this._n) + '-' + Date.now();
-    const cmd = { id, name, type:'powershell', script:text, host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'/root/', rules:[] };
-    this.setState(st => ({ commands: st.commands.concat(cmd), selectedId:id, importOpen:false }));
+    const cmd = { id, name, type:'powershell', script:text, connectionId:'', fileName:'', remoteDir:'/root/', rules:[] };
+    this._updScenarioCommands(cmds => cmds.concat(cmd));
+    this.setState({ selectedId:id, importOpen:false });
     this.pushLog({ level:'info', task:'System', msg:`✓ Script "${name}" imported as a command (${statements} statements). Run it from the command list.` });
   };
 
@@ -978,7 +1082,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   setTestRef = el => { this._testEl = el; };
 
   addShortcut = () => {
-    this.setState(s => ({ shortcuts: s.shortcuts.concat({ id:'s'+(++this._n)+'-'+Date.now(), name:'New shortcut', type:'powershell', script:'Get-Date', host:'', port:'22', username:'', password:'', fileName:'', remoteDir:'' }) }));
+    this.setState(s => ({ shortcuts: s.shortcuts.concat({ id:'s'+(++this._n)+'-'+Date.now(), name:'New shortcut', type:'powershell', script:'Get-Date', connectionId:'', fileName:'', remoteDir:'' }) }));
   };
   _updShortcut(id, patch) {
     this.setState(s => ({ shortcuts: s.shortcuts.map(x => x.id === id ? { ...x, ...patch } : x) }));
@@ -1074,13 +1178,14 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
   };
   async runFile(name) {
     this.setState({ screen:'main' });
-    this.pushLog({ level:'info', task:'Files', msg:`▶ Running "${name}"` });
+    const group = 'g' + (++this._logGroupSeq);
+    this.pushLog({ level:'info', task:'Files', group, msg:`▶ Running "${name}"` });
     try {
       const out = await this.exec({ kind:'ps', script:`& ".\\${name}"` },
-        (line, stream) => this.pushLog({ level: stream === 'err' ? 'error' : 'info', task:'Files', msg: line }));
-      this.pushLog({ level: out.exit === 0 ? 'info' : 'warn', task:'Files', msg:`${out.exit === 0 ? '✓' : '✗'} "${name}" completed (exit ${out.exit})` });
+        (line, stream) => this.pushLog({ level: stream === 'err' ? 'error' : 'info', task:'Files', group, msg: line }));
+      this.pushLog({ level: out.exit === 0 ? 'info' : 'warn', task:'Files', group, msg:`${out.exit === 0 ? '✓' : '✗'} "${name}" completed (exit ${out.exit})` });
     } catch (e) {
-      this.pushLog({ level:'error', task:'Files', msg:`${e.message || e}` });
+      this.pushLog({ level:'error', task:'Files', group, msg:`${e.message || e}` });
     }
   }
   // ---------- login / nav ----------
@@ -1106,6 +1211,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 
   renderVals() {
     const s = this.state;
+    const activeScenario = this._activeScenario();
     const isConsole = s.screen === 'main';
     const isUser = s.screen === 'user';
     const isConfig = s.screen === 'config';
@@ -1126,6 +1232,43 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     };
     const filteredLogs = filtered.map(l => ({ ...l, badgeStyle: badge(l.level) }));
 
+    // Group consecutive log lines that belong to the same command execution
+    // (same `group` id, set once per runCommand/runFile call) so a busy
+    // command's output collapses to just its last line by default.
+    const consoleRows = [];
+    for (let i = 0; i < filteredLogs.length; ) {
+      const l = filteredLogs[i];
+      if (!l.group) { consoleRows.push({ ...l, isGroupRow:false, groupToggle:null, groupBadge:'' }); i++; continue; }
+      let j = i + 1;
+      while (j < filteredLogs.length && filteredLogs[j].group === l.group) j++;
+      const items = filteredLogs.slice(i, j);
+      i = j;
+      if (items.length === 1) {
+        consoleRows.push({ ...items[0], isGroupRow:false, groupToggle:null, groupBadge:'' });
+        continue;
+      }
+      const anchorId = items[0].id;
+      const expanded = !!s.expandedGroups[anchorId];
+      const toggleGroup = () => this.setState(st => {
+        const next = { ...st.expandedGroups };
+        if (next[anchorId]) delete next[anchorId]; else next[anchorId] = true;
+        return { expandedGroups: next };
+      });
+      if (!expanded) {
+        const last = items[items.length - 1];
+        consoleRows.push({ ...last, isGroupRow:true, groupToggle:toggleGroup, groupBadge:`▸ +${items.length - 1} more` });
+      } else {
+        items.forEach((it, idx) => {
+          consoleRows.push({
+            ...it,
+            isGroupRow: idx === 0,
+            groupToggle: idx === 0 ? toggleGroup : null,
+            groupBadge: idx === 0 ? '▾ collapse' : '',
+          });
+        });
+      }
+    }
+
     const tabStyle = (active) => ({
       display:'inline-flex', alignItems:'center', gap:'6px', border:'none', background:'transparent', cursor:'pointer',
       fontFamily:'var(--font-heading)', fontWeight:600, fontSize:'13px', padding:'6px 12px', borderRadius:'var(--radius-md)',
@@ -1134,7 +1277,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     });
 
     const iconFor = (c) => c.type === 'ssh' ? 'ph-plugs-connected' : c.type === 'control' ? 'ph-network' : c.type === 'transfer' ? 'ph-upload-simple' : 'ph-terminal';
-    const commandsView = s.commands.map(c => ({
+    const commandsView = activeScenario.commands.map(c => ({
       id:c.id, name:c.name,
       typeLabel: c.type === 'ssh' ? 'SSH' : c.type === 'control' ? 'Control' : c.type === 'transfer' ? 'File Transfer' : 'PowerShell',
       icon: iconFor(c),
@@ -1205,7 +1348,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       confirmStop: () => { this._abort = true; this.setState({ stopConfirm: false, runState: 'running' }); },
       stopConfirmOpen: s.stopConfirm,
 
-      clearLogs: () => this.setState({ logs: [] }),
+      clearLogs: () => this.setState({ logs: [], expandedGroups: {} }),
       exportLogs: () => {
         const text = filtered.map(l => `[${l.time}] ${l.level.toUpperCase()} ${l.task} — ${l.msg}`).join('\n');
         const a = document.createElement('a');
@@ -1216,12 +1359,12 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 
       // console
       setLogRef: this.setLogRef,
-      filteredLogs,
+      consoleRows,
       noLogs: filteredLogs.length === 0,
       shownCount: filteredLogs.length,
       totalCount: s.logs.length,
       pauseStatus: s.runState === 'running' ? '► Executing' : s.runState === 'paused' ? '❚❚ Paused — finishing the current command first' : '■ Stopped — press Start to run every command in order',
-      commandCount: s.commands.length,
+      commandCount: activeScenario.commands.length,
 
       // edit lock
       lockClass: s.editMode ? '' : 'cr-lock',
@@ -1235,8 +1378,20 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       onLoginKey: (e) => { if (e.key === 'Enter') this.submitLogin(); },
       submitLogin: this.submitLogin, logout: this.logout,
 
+      // scenarios (Start runs the active scenario's ordered commands; Shortcuts run one command)
+      activeScenarioName: activeScenario.name,
+      scenarioMenuOpen: s.scenarioMenuOpen,
+      scenarioMenuCaret: s.scenarioMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
+      toggleScenarioMenu: () => this.setState(st => ({ scenarioMenuOpen: !st.scenarioMenuOpen })),
+      scenarioOptions: s.scenarios.map(sc => ({
+        id:sc.id, name:sc.name, count:sc.commands.length, isActive: sc.id === s.activeScenarioId,
+        rowStyle: { display:'flex', alignItems:'center', gap:'8px', textAlign:'left', border:'none', cursor:'pointer', padding:'7px 9px', borderRadius:'var(--radius-sm)', fontSize:'12px', color:'var(--color-text)', background: sc.id === s.activeScenarioId ? 'var(--color-accent-100)' : 'transparent' },
+        onSelect: () => this.selectScenario(sc.id),
+      })),
+      addScenario: this.addScenario,
+
       // shortcuts
-      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.type === 'transfer' ? `${sc.fileName || 'Select file'} → ${sc.host || 'host'}` : sc.type === 'ssh' ? `${sc.username || 'user'}@${sc.host || 'host'}: ${sc.script}` : sc.script, onRun: () => this.runShortcut(sc) })),
+      shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.type === 'transfer' ? `${sc.fileName || 'Select file'} → ${this._conn(sc.connectionId).host || 'host'}` : sc.type === 'ssh' ? `${this._conn(sc.connectionId).username || 'user'}@${this._conn(sc.connectionId).host || 'host'}: ${sc.script}` : sc.script, onRun: () => this.runShortcut(sc) })),
       transferFiles: s.files,
       scMenuOpen: s.scMenuOpen,
       scMenuCaret: s.scMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
@@ -1250,16 +1405,13 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       rerunShortcut: () => { if (s.scPanel && !s.scBusy) this.runShortcut(s.scPanel); },
       closeScPanel: () => this.setState({ scPanel:null, scLines:[] }),
       shortcutsEdit: s.shortcuts.map(sc => ({
-        name:sc.name, type:sc.type || 'powershell', script:sc.script, host:sc.host || '', port:sc.port || '22', username:sc.username || '', password:sc.password || '', fileName:sc.fileName || '', remoteDir:sc.remoteDir || '',
+        name:sc.name, type:sc.type || 'powershell', script:sc.script, connectionId:sc.connectionId || '', fileName:sc.fileName || '', remoteDir:sc.remoteDir || '',
         isPowerShell: !sc.type || sc.type === 'powershell', isRemote: sc.type === 'ssh' || sc.type === 'transfer', isSsh: sc.type === 'ssh', isTransfer: sc.type === 'transfer',
         onTest: () => this.runTest(sc.name, this._spec({ ...sc, type:sc.type || 'powershell' })),
         onName: (e) => this._updShortcut(sc.id, { name:e.target.value }),
         onType: (e) => { this._updShortcut(sc.id, { type:e.target.value }); if (e.target.value === 'transfer') this.loadFiles(); },
         onScript: (e) => this._updShortcut(sc.id, { script:e.target.value }),
-        onHost: (e) => this._updShortcut(sc.id, { host:e.target.value }),
-        onPort: (e) => this._updShortcut(sc.id, { port:e.target.value }),
-        onUser: (e) => this._updShortcut(sc.id, { username:e.target.value }),
-        onPass: (e) => this._updShortcut(sc.id, { password:e.target.value }),
+        onConnectionId: (e) => this._updShortcut(sc.id, { connectionId:e.target.value }),
         onFileName: (e) => this._updShortcut(sc.id, { fileName:e.target.value }),
         onRemoteDir: (e) => this._updShortcut(sc.id, { remoteDir:e.target.value }),
         onDelete: () => this.setState(st => ({ shortcuts: st.shortcuts.filter(x => x.id !== sc.id) })),
@@ -1278,20 +1430,34 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
 
       // sub tabs
       subCommandsStyle: tabStyle(s.tab === 'commands'),
+      subConnectionsStyle: tabStyle(s.tab === 'connections'),
       subShortcutsStyle: tabStyle(s.tab === 'shortcuts'),
       subFilesStyle: tabStyle(s.tab === 'files'),
       subPasswordStyle: tabStyle(s.tab === 'password'),
-      subManualStyle: tabStyle(s.tab === 'manual'),
       tabCommands: () => this.setState({ tab:'commands' }),
+      tabConnections: () => this.setState({ tab:'connections' }),
       tabShortcuts: () => this.setState({ tab:'shortcuts' }),
       tabFiles: () => { this.setState({ tab:'files' }); this.loadFiles(); },
       tabPassword: () => this.setState({ tab:'password' }),
-      tabManual: () => this.setState({ tab:'manual' }),
       tabIsCommands: s.tab === 'commands',
+      tabIsConnections: s.tab === 'connections',
       tabIsShortcuts: s.tab === 'shortcuts',
       tabIsFiles: s.tab === 'files',
       tabIsPassword: s.tab === 'password',
-      tabIsManual: s.tab === 'manual',
+
+      // connections (shared by SSH & File Transfer commands/shortcuts)
+      connectionOptions: s.connections.map(c => ({ id:c.id, label: c.host ? `${c.name} — ${c.username || 'user'}@${c.host}:${c.port || '22'}` : c.name })),
+      connectionsEdit: s.connections.map(c => ({
+        id:c.id, name:c.name, host:c.host || '', port:c.port || '22', username:c.username || '', password:c.password || '',
+        onName: (e) => this._updConnection(c.id, { name:e.target.value }),
+        onHost: (e) => this._updConnection(c.id, { host:e.target.value }),
+        onPort: (e) => this._updConnection(c.id, { port:e.target.value }),
+        onUser: (e) => this._updConnection(c.id, { username:e.target.value }),
+        onPass: (e) => this._updConnection(c.id, { password:e.target.value }),
+        onDelete: () => this.deleteConnection(c.id),
+      })),
+      noConnections: s.connections.length === 0,
+      addConnection: this.addConnection,
 
       // files directory
       filesDirLabel: s.filesDir || (this._invoke() ? 'Loading…' : 'files\\ (next to the app — desktop app only)'),
@@ -1309,6 +1475,10 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       // commands
       addCommand: this.addCommand,
       commandsView,
+      scenarioName: activeScenario.name,
+      onScenarioName: (e) => this.renameScenario(activeScenario.id, e.target.value),
+      canDeleteScenario: s.scenarios.length > 1,
+      deleteScenario: () => this.deleteScenario(activeScenario.id),
       sel: sel || {},
       selIsSsh: sel ? sel.type === 'ssh' : false,
       selIsControl: sel ? sel.type === 'control' : false,
@@ -1319,10 +1489,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       scriptLabel: sel && sel.type === 'ssh' ? 'Remote command (runs over SSH)' : 'PowerShell script',
       onName: (e) => this._update(sel.id, { name:e.target.value }),
       onType: (e) => this._update(sel.id, { type:e.target.value }),
-      onHost: (e) => this._update(sel.id, { host:e.target.value }),
-      onPort: (e) => this._update(sel.id, { port:e.target.value }),
-      onUser: (e) => this._update(sel.id, { username:e.target.value }),
-      onPass: (e) => this._update(sel.id, { password:e.target.value }),
+      onConnectionId: (e) => this._update(sel.id, { connectionId:e.target.value }),
       onFileName: (e) => this._update(sel.id, { fileName:e.target.value }),
       onRemoteDir: (e) => this._update(sel.id, { remoteDir:e.target.value }),
       onScript: (e) => this._update(sel.id, { script:e.target.value }),
