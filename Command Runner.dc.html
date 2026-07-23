@@ -36,7 +36,10 @@
         <i class="ph-duotone ph-sliders-horizontal" style="font-size:16px"></i> Configuration
         <i class="ph-duotone ph-lock-simple" style="font-size:13px;margin-left:2px"></i>
       </button>
-      <div style="position:relative;margin-left:8px;display:flex;align-items:center">
+      <sc-if value="{{ anyMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:39;cursor:default"></div>
+      </sc-if>
+      <div style="position:relative;z-index:41;margin-left:8px;display:flex;align-items:center">
         <button onClick="{{ toggleScenarioMenu }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--font-heading);font-weight:600;font-size:12px;padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:var(--color-surface);color:var(--color-text);cursor:pointer" style-hover="background:var(--color-accent-100)">
           <i class="ph-duotone ph-flow-arrow" style="font-size:13px;color:var(--color-accent-700)"></i> {{ activeScenarioName }}
           <i class="ph-duotone {{ scenarioMenuCaret }}" style="font-size:12px"></i>
@@ -50,13 +53,10 @@
                 <span style="font-size:11px;color:var(--color-neutral-600)">{{ opt.count }}</span>
               </button>
             </sc-for>
-            <button onClick="{{ addScenario }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-accent-700)" style-hover="background:var(--color-accent-100)">
-              <i class="ph-duotone ph-plus" style="font-size:14px;flex:none"></i> New scenario
-            </button>
           </div>
         </sc-if>
       </div>
-      <div style="position:relative;margin-left:6px;display:flex;align-items:center">
+      <div style="position:relative;z-index:41;margin-left:6px;display:flex;align-items:center">
         <button onClick="{{ toggleScMenu }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--font-heading);font-weight:600;font-size:12px;padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--color-accent-300);background:var(--color-accent-100);color:var(--color-accent-800);cursor:pointer" style-hover="background:var(--color-accent-200)">
           <i class="ph-duotone ph-lightning" style="font-size:13px"></i> Shortcuts
           <i class="ph-duotone {{ scMenuCaret }}" style="font-size:12px"></i>
@@ -85,6 +85,11 @@
           </button>
           <button class="btn btn-secondary" onClick="{{ requestStop }}" style="min-height:28px;padding:4px 10px;font-size:12px;color:var(--color-accent-2-700)">
             <i class="ph-duotone ph-stop" style="font-size:14px"></i> Stop
+          </button>
+        </sc-if>
+        <sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
+          <button class="btn btn-secondary" onClick="{{ toggleAllGroups }}" style="min-height:28px;padding:4px 10px;font-size:12px">
+            <i class="ph-duotone {{ toggleAllGroupsIcon }}" style="font-size:14px"></i> {{ toggleAllGroupsLabel }}
           </button>
         </sc-if>
         <button class="btn btn-secondary" onClick="{{ clearLogs }}" style="min-height:28px;padding:4px 10px;font-size:12px">
@@ -231,6 +236,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:4px">
                       <input class="input cr-free" value="{{ scenarioName }}" onInput="{{ onScenarioName }}" style="flex:1;min-height:30px;font-size:12px">
+                      <button class="cr-free" onClick="{{ addScenario }}" title="New scenario" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-600);padding:4px" style-hover="color:var(--color-accent-700)"><i class="ph-duotone ph-plus" style="font-size:15px"></i></button>
                       <sc-if value="{{ canDeleteScenario }}" hint-placeholder-val="{{ false }}">
                         <button class="cr-free" onClick="{{ deleteScenario }}" title="Delete scenario" style="flex:none;border:none;background:transparent;cursor:pointer;color:var(--color-neutral-500);padding:4px" style-hover="color:var(--color-accent-2-700)"><i class="ph-duotone ph-trash" style="font-size:15px"></i></button>
                       </sc-if>
@@ -1236,6 +1242,8 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     // (same `group` id, set once per runCommand/runFile call) so a busy
     // command's output collapses to just its last line by default.
     const consoleRows = [];
+    const groupAnchorIds = [];
+    let anyGroupCollapsed = false;
     for (let i = 0; i < filteredLogs.length; ) {
       const l = filteredLogs[i];
       if (!l.group) { consoleRows.push({ ...l, isGroupRow:false, groupToggle:null, groupBadge:'' }); i++; continue; }
@@ -1248,12 +1256,10 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
         continue;
       }
       const anchorId = items[0].id;
+      groupAnchorIds.push(anchorId);
       const expanded = !!s.expandedGroups[anchorId];
-      const toggleGroup = () => this.setState(st => {
-        const next = { ...st.expandedGroups };
-        if (next[anchorId]) delete next[anchorId]; else next[anchorId] = true;
-        return { expandedGroups: next };
-      });
+      if (!expanded) anyGroupCollapsed = true;
+      const toggleGroup = () => this.setState(st => ({ expandedGroups: { ...st.expandedGroups, [anchorId]: !st.expandedGroups[anchorId] } }));
       if (!expanded) {
         const last = items[items.length - 1];
         consoleRows.push({ ...last, isGroupRow:true, groupToggle:toggleGroup, groupBadge:`▸ +${items.length - 1} more` });
@@ -1268,6 +1274,18 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
         });
       }
     }
+    const hasGroups = groupAnchorIds.length > 0;
+    const allGroupsExpanded = hasGroups && !anyGroupCollapsed;
+    const expandAllGroups = () => this.setState(st => {
+      const next = { ...st.expandedGroups };
+      groupAnchorIds.forEach(id => { next[id] = true; });
+      return { expandedGroups: next };
+    });
+    const collapseAllGroups = () => this.setState(st => {
+      const next = { ...st.expandedGroups };
+      groupAnchorIds.forEach(id => { delete next[id]; });
+      return { expandedGroups: next };
+    });
 
     const tabStyle = (active) => ({
       display:'inline-flex', alignItems:'center', gap:'6px', border:'none', background:'transparent', cursor:'pointer',
@@ -1363,6 +1381,10 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       noLogs: filteredLogs.length === 0,
       shownCount: filteredLogs.length,
       totalCount: s.logs.length,
+      hasGroups,
+      toggleAllGroups: allGroupsExpanded ? collapseAllGroups : expandAllGroups,
+      toggleAllGroupsLabel: allGroupsExpanded ? 'Collapse all' : 'Expand all',
+      toggleAllGroupsIcon: allGroupsExpanded ? 'ph-arrows-in-line-vertical' : 'ph-arrows-out-line-vertical',
       pauseStatus: s.runState === 'running' ? '► Executing' : s.runState === 'paused' ? '❚❚ Paused — finishing the current command first' : '■ Stopped — press Start to run every command in order',
       commandCount: activeScenario.commands.length,
 
@@ -1382,7 +1404,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       activeScenarioName: activeScenario.name,
       scenarioMenuOpen: s.scenarioMenuOpen,
       scenarioMenuCaret: s.scenarioMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
-      toggleScenarioMenu: () => this.setState(st => ({ scenarioMenuOpen: !st.scenarioMenuOpen })),
+      toggleScenarioMenu: () => this.setState(st => ({ scenarioMenuOpen: !st.scenarioMenuOpen, scMenuOpen: false })),
       scenarioOptions: s.scenarios.map(sc => ({
         id:sc.id, name:sc.name, count:sc.commands.length, isActive: sc.id === s.activeScenarioId,
         rowStyle: { display:'flex', alignItems:'center', gap:'8px', textAlign:'left', border:'none', cursor:'pointer', padding:'7px 9px', borderRadius:'var(--radius-sm)', fontSize:'12px', color:'var(--color-text)', background: sc.id === s.activeScenarioId ? 'var(--color-accent-100)' : 'transparent' },
@@ -1390,12 +1412,16 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       })),
       addScenario: this.addScenario,
 
+      // click-outside-to-close for the top-bar scenario/shortcuts dropdowns
+      anyMenuOpen: s.scenarioMenuOpen || s.scMenuOpen,
+      closeMenus: () => this.setState({ scenarioMenuOpen:false, scMenuOpen:false }),
+
       // shortcuts
       shortcutsView: s.shortcuts.map(sc => ({ name:sc.name, script:sc.type === 'transfer' ? `${sc.fileName || 'Select file'} → ${this._conn(sc.connectionId).host || 'host'}` : sc.type === 'ssh' ? `${this._conn(sc.connectionId).username || 'user'}@${this._conn(sc.connectionId).host || 'host'}: ${sc.script}` : sc.script, onRun: () => this.runShortcut(sc) })),
       transferFiles: s.files,
       scMenuOpen: s.scMenuOpen,
       scMenuCaret: s.scMenuOpen ? 'ph-caret-up' : 'ph-caret-down',
-      toggleScMenu: () => this.setState(st => ({ scMenuOpen: !st.scMenuOpen })),
+      toggleScMenu: () => this.setState(st => ({ scMenuOpen: !st.scMenuOpen, scenarioMenuOpen: false })),
       scPanelOpen: isConsole && !!s.scPanel,
       scPanelName: s.scPanel ? s.scPanel.name : '',
       scPanelScript: s.scPanel ? s.scPanel.script : '',
