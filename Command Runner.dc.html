@@ -96,9 +96,9 @@
       <div style="flex:1;display:flex;flex-direction:column;min-height:0">
 
         <!-- Log console -->
-        <div ref="{{ setLogRef }}" class="cr-scroll" oncontextmenu="{{ onLogContextMenu }}" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
+        <div ref="{{ setLogRef }}" class="cr-scroll" style="flex:1;min-height:0;overflow-y:auto;background:var(--color-bg);padding:6px 0">
           <sc-for list="{{ consoleRows }}" as="log" hint-placeholder-count="8">
-            <div style="display:flex;gap:10px;align-items:baseline;padding:2px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
+            <div oncontextmenu="{{ log.onContextMenu }}" style="display:flex;gap:10px;align-items:baseline;padding:2px 12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;line-height:1.5" style-hover="background:color-mix(in srgb, var(--color-text) 4%, transparent)">
               <span style="color:var(--color-neutral-500);flex:none;width:62px">{{ log.time }}</span>
               <span style="{{ log.badgeStyle }}">{{ log.level }}</span>
               <span style="color:var(--color-accent-700);flex:none;width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.task }}</span>
@@ -113,9 +113,12 @@
           </sc-if>
         </div>
 
-        <!-- Right-click menu: expand/collapse all groups, export, clear -->
+        <!-- Right-click menu: copy/select, expand/collapse all groups, export, clear -->
         <sc-if value="{{ logMenuOpen }}" hint-placeholder-val="{{ false }}">
           <div style="{{ logMenuStyle }}">
+            <button onClick="{{ copyLogLine }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-copy" style="font-size:14px;flex:none"></i> Copy</button>
+            <button onClick="{{ selectAllLogs }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-selection-all" style="font-size:14px;flex:none"></i> Select all</button>
+            <div style="height:1px;background:var(--color-divider);margin:4px 2px"></div>
             <sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
               <button onClick="{{ expandAllGroups }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-arrows-out-line-vertical" style="font-size:14px;flex:none"></i> Expand all</button>
               <button onClick="{{ collapseAllGroups }}" style="display:flex;align-items:center;gap:8px;text-align:left;border:none;background:transparent;cursor:pointer;padding:7px 9px;border-radius:var(--radius-sm);font-size:12px;color:var(--color-text)" style-hover="background:var(--color-accent-100)"><i class="ph-duotone ph-arrows-in-line-vertical" style="font-size:14px;flex:none"></i> Collapse all</button>
@@ -801,6 +804,20 @@ class Component extends DCLogic {
   }
   setLogRef = el => { this._logEl = el; };
 
+  // execCommand still works without a Clipboard-API permission prompt inside
+  // the Tauri webview, unlike navigator.clipboard which can silently no-op there.
+  _copyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
   // ---------- execution ----------
   // spec: { kind:'ps'|'ssh', script, host, port, username, password }
   // onLine(line, stream) fires per output line while the command is still running.
@@ -1243,15 +1260,19 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
     // command's output collapses to just its last line by default.
     const consoleRows = [];
     const groupAnchorIds = [];
+    const lineMenu = (entry) => (e) => {
+      e.preventDefault();
+      this.setState({ logMenu: { x: e.clientX, y: e.clientY, text: `[${entry.time}] ${entry.level.toUpperCase()} ${entry.task} — ${entry.msg}` } });
+    };
     for (let i = 0; i < filteredLogs.length; ) {
       const l = filteredLogs[i];
-      if (!l.group) { consoleRows.push({ ...l, isGroupRow:false, groupToggle:null, groupBadge:'' }); i++; continue; }
+      if (!l.group) { consoleRows.push({ ...l, isGroupRow:false, groupToggle:null, groupBadge:'', onContextMenu:lineMenu(l) }); i++; continue; }
       let j = i + 1;
       while (j < filteredLogs.length && filteredLogs[j].group === l.group) j++;
       const items = filteredLogs.slice(i, j);
       i = j;
       if (items.length === 1) {
-        consoleRows.push({ ...items[0], isGroupRow:false, groupToggle:null, groupBadge:'' });
+        consoleRows.push({ ...items[0], isGroupRow:false, groupToggle:null, groupBadge:'', onContextMenu:lineMenu(items[0]) });
         continue;
       }
       const anchorId = items[0].id;
@@ -1260,7 +1281,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       const toggleGroup = () => this.setState(st => ({ expandedGroups: { ...st.expandedGroups, [anchorId]: !st.expandedGroups[anchorId] } }));
       if (!expanded) {
         const last = items[items.length - 1];
-        consoleRows.push({ ...last, isGroupRow:true, groupToggle:toggleGroup, groupBadge:`▸ +${items.length - 1} more` });
+        consoleRows.push({ ...last, isGroupRow:true, groupToggle:toggleGroup, groupBadge:`▸ +${items.length - 1} more`, onContextMenu:lineMenu(last) });
       } else {
         items.forEach((it, idx) => {
           consoleRows.push({
@@ -1268,6 +1289,7 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
             isGroupRow: idx === 0,
             groupToggle: idx === 0 ? toggleGroup : null,
             groupBadge: idx === 0 ? '▾ collapse' : '',
+            onContextMenu: lineMenu(it),
           });
         });
       }
@@ -1382,13 +1404,25 @@ $pscp = if (Test-Path -LiteralPath $pscpPath) { $pscpPath } else { 'pscp' }
       pauseStatus: s.runState === 'running' ? '► Executing' : s.runState === 'paused' ? '❚❚ Paused — finishing the current command first' : '■ Stopped — press Start to run every command in order',
       commandCount: activeScenario.commands.length,
 
-      // right-click menu on the log console: expand/collapse all, export, clear
-      onLogContextMenu: (e) => {
-        e.preventDefault();
-        this.setState({ logMenu: { x: e.clientX, y: e.clientY } });
-      },
+      // right-click menu on the log console: copy, select all, expand/collapse all, export, clear
       logMenuOpen: !!s.logMenu,
       logMenuStyle: { position:'fixed', top:(s.logMenu ? s.logMenu.y : 0) + 'px', left:(s.logMenu ? s.logMenu.x : 0) + 'px', zIndex:50, minWidth:'170px', background:'var(--color-bg)', border:'1px solid var(--color-divider)', borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-lg)', padding:'4px', display:'flex', flexDirection:'column' },
+      copyLogLine: () => {
+        const selected = window.getSelection().toString();
+        const text = selected || (s.logMenu && s.logMenu.text) || '';
+        if (text) this._copyText(text);
+        this.setState({ logMenu: null });
+      },
+      selectAllLogs: () => {
+        if (this._logEl) {
+          const range = document.createRange();
+          range.selectNodeContents(this._logEl);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        this.setState({ logMenu: null });
+      },
       hasGroups,
       expandAllGroups,
       collapseAllGroups,
